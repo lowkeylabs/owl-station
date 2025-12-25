@@ -44,7 +44,7 @@ def info():
     click.echo(f"OWL-Planner version: {solver.version}")
 
     if solver.commit:
-        click.echo(f"OWL solver commit:  {solver.commit}")
+        click.echo(f"OWL-Planner commit:  {solver.commit}")
 
 
 if __name__ == "__main__":
