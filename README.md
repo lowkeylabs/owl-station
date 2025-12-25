@@ -28,17 +28,13 @@ OWL:
 * Optimizes a **single plan**
 * Uses **linear programming**
 * Solves for either:
-
   * maximum net spending, or
   * maximum after-tax bequest
-
 * Applies detailed constraints involving:
-
   * taxes
   * Roth conversions
   * Social Security
   * Medicare and IRMAA
-
 * Re-optimizes under each scenario rather than simulating fixed behavior
 
 OWL is a **laboratory instrument**, not a prescriptive planner.
