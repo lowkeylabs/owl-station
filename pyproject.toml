@@ -1,6 +1,6 @@
 [project]
 name = "owl-station"
-version = "0.1.0"
+version = "0.2.0"
 description = "OWL-Station - experimental design and orchestration framework built on Optimal Wealth Laboratory (OWL)"
 readme = "README.md"
 requires-python = ">=3.13"

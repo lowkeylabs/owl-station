@@ -1,0 +1,59 @@
+# -------------------------------------------------
+# Python
+# -------------------------------------------------
+
+# Bytecode
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environments
+.venv/
+venv/
+ENV/
+env/
+
+# Packaging / build
+build/
+dist/
+*.egg-info/
+
+# uv
+.uv/
+.python-version
+
+# Hatchling
+.hatch/
+
+# Ruff
+.ruff_cache/
+
+# -------------------------------------------------
+# Jupyter
+# -------------------------------------------------
+
+.ipynb_checkpoints/
+
+# -------------------------------------------------
+# Quarto
+# -------------------------------------------------
+
+# Quarto project outputs
+.quarto/
+_quarto/
+.quarto-lock/
+
+# Quarto cache
+_cache/
+_freeze/
+
+# -------------------------------------------------
+# OS / Editor
+# -------------------------------------------------
+
+.DS_Store
+Thumbs.db
+
+# VS Code
+.vscode/
+*.code-workspace

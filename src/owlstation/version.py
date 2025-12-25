@@ -1,1 +1,6 @@
-__version__ = "2025.12.25"
+from importlib.metadata import PackageNotFoundError, version
+
+try:
+    __version__ = version("owl-station")
+except PackageNotFoundError:  # pragma: no cover
+    __version__ = "0.0.0+unknown"
