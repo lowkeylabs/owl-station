@@ -1,0 +1,86 @@
+[
+  {
+    "objectID": "index.html",
+    "href": "index.html",
+    "title": "OWL-Station",
+    "section": "",
+    "text": "OWL-Station is a research and experimental design framework built on top of Optimal Wealth Laboratory (OWL).\nOWL-Station does not replace OWL. OWL-Station is not a retirement planner.\nInstead, OWL-Station provides an infrastructure for designing, executing, and analyzing controlled experiments that use OWL as the core optimization engine."
+  },
+  {
+    "objectID": "index.html#how-owl-and-owl-station-differ",
+    "href": "index.html#how-owl-and-owl-station-differ",
+    "title": "OWL-Station",
+    "section": "How OWL and OWL-Station Differ",
+    "text": "How OWL and OWL-Station Differ\n\n\n\n\n\n\n\nTool\nPurpose\n\n\n\n\nOWL (Optimal Wealth Laboratory)\nOptimizes a single retirement scenario under a specified set of assumptions\n\n\nOWL-Station\nDesigns and executes experiments that systematically vary those assumptions\n\n\n\nPut simply:\n\nOWL optimizes retirement scenarios. OWL-Station studies the sensitivity of those optimizations."
+  },
+  {
+    "objectID": "about.html",
+    "href": "about.html",
+    "title": "OWL-Station",
+    "section": "",
+    "text": "OWL-Station is a research and experimental design framework built on top of Optimal Wealth Laboratory (OWL).\nOWL-Station does not replace OWL. OWL-Station is not a retirement planner.\nInstead, OWL-Station provides an infrastructure for designing, executing, and analyzing controlled experiments that use OWL as the core optimization engine."
+  },
+  {
+    "objectID": "about.html#how-owl-and-owl-station-differ",
+    "href": "about.html#how-owl-and-owl-station-differ",
+    "title": "OWL-Station",
+    "section": "How OWL and OWL-Station Differ",
+    "text": "How OWL and OWL-Station Differ\n\n\n\n\n\n\n\nTool\nPurpose\n\n\n\n\nOWL (Optimal Wealth Laboratory)\nOptimizes a single retirement scenario under a specified set of assumptions\n\n\nOWL-Station\nDesigns and executes experiments that systematically vary those assumptions\n\n\n\nPut simply:\n\nOWL optimizes retirement scenarios. OWL-Station studies the sensitivity of those optimizations."
+  },
+  {
+    "objectID": "about.html#what-owl-does",
+    "href": "about.html#what-owl-does",
+    "title": "OWL-Station",
+    "section": "What OWL Does",
+    "text": "What OWL Does\nOWL is a modeling framework for exploring retirement financial decisions under uncertainty. It uses rigorous mathematical optimization to generate optimal realizations of a financial strategy under a given set of assumptions.\nOWL:\n\nOptimizes a single plan\nUses linear programming\nSolves for either:\n\nmaximum net spending, or\nmaximum after-tax bequest\n\nApplies detailed constraints involving:\n\ntaxes\nRoth conversions\nSocial Security\nMedicare and IRMAA\n\nRe-optimizes under each scenario rather than simulating fixed behavior\n\nOWL is a laboratory instrument, not a prescriptive planner."
+  },
+  {
+    "objectID": "about.html#what-owl-station-adds",
+    "href": "about.html#what-owl-station-adds",
+    "title": "OWL-Station",
+    "section": "What OWL-Station Adds",
+    "text": "What OWL-Station Adds\nOWL-Station operates around OWL. OWL-Station provides:\n\nExperiment design\nScenario orchestration\nRate-regime management\nSensitivity analysis\nStochastic and histochastic studies\nMonte Carlo replication\nResult aggregation and comparison\n\nOWL-Station never performs financial optimization itself. Every calculation is delegated to OWL."
+  },
+  {
+    "objectID": "about.html#a-clear-boundary",
+    "href": "about.html#a-clear-boundary",
+    "title": "OWL-Station",
+    "section": "A Clear Boundary",
+    "text": "A Clear Boundary\nOWL-Station intentionally excludes:\n\nretirement planning logic\nfinancial rules\ntax calculations\noptimization formulations\n\nThose remain authoritative inside OWL.\nOWL-Station focuses exclusively on:\n\nhow assumptions vary\nwhich scenarios are compared\nhow uncertainty is explored\nwhat can be learned from repeated optimized outcomes"
+  },
+  {
+    "objectID": "about.html#why-owl-station-exists",
+    "href": "about.html#why-owl-station-exists",
+    "title": "OWL-Station",
+    "section": "Why OWL-Station Exists",
+    "text": "Why OWL-Station Exists\nFinancial decisions cannot be planned with certainty because markets are volatile. What can be done is to understand how sensitive optimal decisions are to changes in assumptions.\nOWL already enables this at the single-scenario level.\nOWL-Station enables it systematically.\nExamples:\n\nComparing retirement outcomes across historical market regimes\nTesting “near-worst-case” sequences vs average conditions\nStudying stochastic rate distributions with known statistical properties\nEvaluating how optimal Roth conversion strategies change under different assumptions\nMeasuring probabilities of success across thousands of optimized futures"
+  },
+  {
+    "objectID": "about.html#feedback-loop-to-owl",
+    "href": "about.html#feedback-loop-to-owl",
+    "title": "OWL-Station",
+    "section": "Feedback Loop to OWL",
+    "text": "Feedback Loop to OWL\nOWL-Station is not a one-way consumer of OWL.\n*Insights gained from experiments conducted in OWL-Station may motivate refinements, extensions, or improvements to the underlying OWL planner.*\nThis includes:\n\nimproved formulations\nnew constraints\nbetter objective handling\nenhanced rate modeling\nperformance optimizations\n\nOWL remains the authoritative solver. OWL-Station serves as a research proving ground."
+  },
+  {
+    "objectID": "about.html#relationship-to-interactive-tools",
+    "href": "about.html#relationship-to-interactive-tools",
+    "title": "OWL-Station",
+    "section": "Relationship to Interactive Tools",
+    "text": "Relationship to Interactive Tools\n\nowlplanner.streamlit.app provides interactive exploration of individual OWL plans. The user interface does provide some multiple scenario features.\nOWL-Station significantly expenses on the multiple-scenario features and provides reproducible, scriptable, research-oriented experimentation.\n\nThese tools are complementary, not competing."
+  },
+  {
+    "objectID": "about.html#typical-workflow",
+    "href": "about.html#typical-workflow",
+    "title": "OWL-Station",
+    "section": "Typical Workflow",
+    "text": "Typical Workflow\n\nDefine a baseline retirement plan (OWL input TOML). Save the TOML file\nDesign an experiment in OWL-Station\nOWL-Station builds a family of TOML files and executes these OWL runs under controlled variations\nResults are collected, compared, and analyzed\nInsights may inform decision-making or future OWL development"
+  },
+  {
+    "objectID": "about.html#summary",
+    "href": "about.html#summary",
+    "title": "OWL-Station",
+    "section": "Summary",
+    "text": "Summary\n\nOWL is the optimizer.\nOWL-Station is the research station built around it.\n\nTogether, they form a rigorous framework for understanding retirement decisions under uncertainty."
+  }
+]

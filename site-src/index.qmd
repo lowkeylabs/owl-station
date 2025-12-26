@@ -1,0 +1,22 @@
+---
+title: OWL-Station
+---
+
+**OWL-Station** is a research and experimental design framework built on top of [Optimal Wealth Laboratory (OWL)](https://github.com/mdlacasse/Owl).
+
+OWL-Station does **not** replace OWL.  OWL-Station is **not** a retirement planner.
+
+Instead, OWL-Station provides an infrastructure for **designing, executing, and analyzing controlled experiments** that use OWL as the core optimization engine.
+
+## How OWL and OWL-Station Differ
+
+
+| Tool                                | Purpose                                                                       |
+| ----------------------------------- | ----------------------------------------------------------------------------- |
+| **OWL (Optimal Wealth Laboratory)** | Optimizes a *single* retirement scenario under a specified set of assumptions |
+| **OWL-Station**                     | Designs and executes *experiments* that systematically vary those assumptions |
+
+Put simply:
+
+> **OWL optimizes retirement scenarios.
+> OWL-Station studies the sensitivity of those optimizations.**
