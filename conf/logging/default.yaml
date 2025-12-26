@@ -1,1 +1,0 @@
-level: ${oc.env:OWLSTATION_LOG_LEVEL,DEBUG}
