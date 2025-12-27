@@ -1,6 +1,8 @@
 defaults:
   - logging: default
   - longevity: default
+  - optimization: default
+  - solver: default
   - case: default
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled

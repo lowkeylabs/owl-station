@@ -40,6 +40,6 @@ def hydra_overrides_to_dict(overrides: list[str]) -> dict:
             except ValueError:
                 pass
 
-        result[section][name.capitalize()] = value
+        result[section][name] = value
 
     return dict(result)

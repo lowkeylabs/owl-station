@@ -124,7 +124,6 @@ def cmd_run(ctx, filename: Path):
     # Reject sweep syntax
     # -----------------------------
     reject_sweeps(ctx.args)
-
     # -----------------------------
     # Load Hydra configuration
     # -----------------------------
@@ -133,6 +132,7 @@ def cmd_run(ctx, filename: Path):
     # -----------------------------
     # Extract EXACT Hydra overrides
     # -----------------------------
+    logger.info("overrides: {}", ctx.args)
     overrides = hydra_overrides_to_dict(ctx.args)
 
     logger.info("Scenario overrides: {}", overrides)

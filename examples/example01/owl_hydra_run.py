@@ -11,10 +11,10 @@ from owlstation.core.configure_logging import configure_logging
 from owlstation.core.override_parser import hydra_overrides_to_dict
 from owlstation.core.owl_runner import run_single_case
 
-# Loguru needs to initially set OUTSIDE of main
+# Loguru needs to initially be set OUTSIDE of main
 level = os.getenv("OWLSTATION_LOG_LEVEL")
 if not level:
-    level = "INFO"  # <- this should match conf/logging/default.yaml default setting!
+    level = "INFO"  # <- this level MUST match conf/logging/default.yaml default setting!
 configure_logging(log_level=level)
 
 
