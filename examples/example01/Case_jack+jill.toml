@@ -46,10 +46,9 @@ generic = [ [ [ 60, 40, 0, 0,], [ 70, 30, 0, 0,],], [ [ 60, 40, 0, 0,], [ 80, 0,
 "Smile dip" = 15
 "Smile increase" = 12
 "Smile delay" = 0
-Objective = "maxBequest"
+Objective = "maxSpending"
 
 ["Solver Options"]
-netSpending = 88
 maxRothConversion = 100
 noRothConversions = "Jill"
 startRothConversions = 2025

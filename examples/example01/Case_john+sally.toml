@@ -1,0 +1,60 @@
+"Plan Name" = "john+sally"
+Description = "This example reproduces the case of John and Sally, discussed by Eric Sajdak. This case can be used to compare the heuristic strategy of surfing a tax bracket for performing Roth conversions to a solution optimized by linear programming. The former is a good approach when one assumes fixed rates. When rates are varying, and the market drops, an optimized solution shows that it is sometime advantageous to convert above the target tax bracket. File 'john+sally.xlsx' contains wages and contributions associated with this case. Run this case with different rates to see the effects on Roth conversions."
+
+["Basic Info"]
+Status = "married"
+Names = [ "John", "Sally",]
+"Date of birth" = [ "1962-01-15", "1962-01-15",]
+"Life expectancy" = [ 92, 92,]
+"Start date" = "2025-01-01"
+
+[Assets]
+"taxable savings balances" = [ 200.0, 200.0,]
+"tax-deferred savings balances" = [ 750.0, 750.0,]
+"tax-free savings balances" = [ 50.0, 50.0,]
+"Beneficiary fractions" = [ 1.0, 1.0, 1.0,]
+"Spousal surplus deposit fraction" = 0.5
+
+["Household Financial Profile"]
+"HFP file name" = "HFP_john+sally.xlsx"
+
+["Fixed Income"]
+"Pension monthly amounts" = [ 0, 0,]
+"Pension ages" = [ 65.0, 65.0,]
+"Pension indexed" = [ false, false,]
+"Social security PIA amounts" = [ 3000, 1800,]
+"Social security ages" = [ 67.0, 67.0,]
+
+["Rates Selection"]
+"Heirs rate on tax-deferred estate" = 30.0
+"Dividend rate" = 1.8000000000000003
+"OBBBA expiration year" = 2032
+Method = "historical average"
+From = 1990
+To = 2023
+
+["Asset Allocation"]
+"Interpolation method" = "linear"
+"Interpolation center" = 15.0
+"Interpolation width" = 5.0
+Type = "individual"
+generic = [ [ [ 60, 40, 0, 0,], [ 60, 40, 0, 0,],], [ [ 60, 40, 0, 0,], [ 60, 40, 0, 0,],],]
+
+["Optimization Parameters"]
+"Spending profile" = "flat"
+"Surviving spouse spending percent" = 60
+Objective = "maxBequest"
+
+["Solver Options"]
+netSpending = 100
+maxRothConversion = 200
+noRothConversions = "None"
+startRothConversions = 2025
+withMedicare = "loop"
+solver = "HiGHS"
+spendingSlack = 0
+xorConstraints = true
+withSCLoop = true
+
+[Results]
+"Default plots" = "today"

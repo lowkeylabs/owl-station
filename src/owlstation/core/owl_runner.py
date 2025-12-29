@@ -10,6 +10,7 @@ from pathlib import Path
 import numpy as np
 import owlplanner as owl
 import toml
+from loguru import logger
 
 from owlstation.core.metrics_from_plan import write_metrics_json
 
@@ -59,30 +60,9 @@ def apply_optimization_override(diconf: dict, value: dict):
     """
 
     opt = diconf.setdefault("Optimization Parameters", {})
-    solver = diconf.setdefault("Solver Options", {})
-
     # Apply overrides
     for k, v in value.items():
         opt[k] = v
-
-    objective = opt.get("Objective")
-
-    if objective == "maxBequest":
-        if "netSpending" not in solver:
-            raise RuntimeError("Objective=maxBequest requires 'netSpending' in [Solver Options]")
-
-        # Remove incompatible constraint
-        solver.pop("bequest", None)
-
-    elif objective == "maxSpending":
-        if "bequest" not in solver:
-            raise RuntimeError("Objective=maxSpending requires 'bequest' in [Solver Options]")
-
-        # Remove incompatible constraint
-        solver.pop("netSpending", None)
-
-    else:
-        raise RuntimeError(f"Unknown optimization Objective: {objective}")
 
 
 def apply_solver_override(diconf: dict, value: dict):
@@ -106,33 +86,6 @@ def apply_solver_override(diconf: dict, value: dict):
     for k, v in value.items():
         solver[k] = v
 
-    # -------------------------------------------------
-    # Normalize mutually exclusive solver flags
-    # -------------------------------------------------
-
-    # If noRothConversions is set, maxRothConversion is irrelevant
-    if solver.get("noRothConversions"):
-        solver.pop("maxRothConversion", None)
-
-    # spendingSlack must be non-negative
-    if "spendingSlack" in solver:
-        slack = solver["spendingSlack"]
-        if slack < 0:
-            raise RuntimeError("solver.spendingSlack must be >= 0")
-
-    # xorConstraints should be boolean
-    if "xorConstraints" in solver:
-        solver["xorConstraints"] = bool(solver["xorConstraints"])
-
-    # withSCLoop should be boolean
-    if "withSCLoop" in solver:
-        solver["withSCLoop"] = bool(solver["withSCLoop"])
-
-    # solver backend sanity check
-    if "solver" in solver:
-        if solver["solver"] not in {"HiGHS"}:
-            raise RuntimeError(f"Unsupported solver backend: {solver['solver']}")
-
 
 OVERRIDE_HANDLERS = {
     "longevity": apply_longevity_override,
@@ -150,15 +103,17 @@ def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, s
     # -------------------------------------------------
     # Apply semantic overrides via handlers
     # -------------------------------------------------
-    for key, value in overrides.items():
-        try:
-            handler = OVERRIDE_HANDLERS[key]
-        except KeyError as e:
-            raise RuntimeError(
-                f"Unknown override '{key}'. " f"Supported overrides: {list(OVERRIDE_HANDLERS)}"
-            ) from e
-
-        handler(diconf, value)
+    if overrides:
+        for key, value in overrides.items():
+            try:
+                handler = OVERRIDE_HANDLERS[key]
+            except KeyError as e:
+                raise RuntimeError(
+                    f"Unknown override '{key}'. " f"Supported overrides: {list(OVERRIDE_HANDLERS)}"
+                ) from e
+            if handler is None:
+                logger.debug("Ignoring non-semantic override: {}", key)
+            handler(diconf, value)
 
     # -------------------------------------------------
     # Serialize adjusted TOML
@@ -167,7 +122,7 @@ def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, s
     buf = StringIO(toml_text)
     buf.seek(0)
 
-    return buf, toml_text
+    return buf, toml_text, diconf
 
 
 def normalize_optimization(plan):
@@ -211,7 +166,7 @@ def json_safe(obj):
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def solve_and_save(plan, output_file: str) -> None:
+def solve_and_save(plan, output_file: str, effective_toml: str) -> None:
     """
     Solve the plan and write output.
     """
@@ -235,9 +190,12 @@ def solve_and_save(plan, output_file: str) -> None:
     summary_path = output_path.with_suffix("").with_name(  # strip .xlsx
         output_path.stem + "_summary.json"
     )
-
     with open(summary_path, "w") as f:
         json.dump(plan.summaryDic(), f, indent=2, sort_keys=False, default=json_safe)
+
+    toml_path = output_path.with_suffix("").with_name(output_path.stem + "_effective.toml")
+    with open(toml_path, "w", encoding="utf-8") as f:
+        f.write(effective_toml)
 
 
 # ---------------------------------------------------------------------
@@ -258,7 +216,13 @@ def run_single_case(
     ensuring all derived horizons and constraints
     are built correctly by OWL.
     """
-    toml_buf, toml_text = load_and_override_toml(case_file, overrides)
+
+    SEMANTIC_OVERRIDE_KEYS = set(OVERRIDE_HANDLERS)
+    if overrides:
+        semantic_overrides = {k: v for k, v in overrides.items() if k in SEMANTIC_OVERRIDE_KEYS}
+    else:
+        semantic_overrides = None
+    toml_buf, toml_text, toml_dict = load_and_override_toml(case_file, semantic_overrides)
 
     plan = owl.readConfig(
         toml_buf,
@@ -266,7 +230,22 @@ def run_single_case(
         readContributions=False,
     )
 
-    solve_and_save(plan, output_file)
+    # Add code to find and read from contributions file
+
+    hfp_section = toml_dict.get("Household Financial Profile", {})
+    timeListsFileName = hfp_section.get("HFP file name", None)
+    timeListsFileName = str(Path(case_file).parent / timeListsFileName)
+    logger.debug(f"HFP file: {timeListsFileName}")
+    plan.readContributions(timeListsFileName)
+
+    logger.debug(f"{plan.tau_kn}")
+    # self.tau_kn = dr.genSeries(self.N_n).transpose()
+    # self.mylog.vprint(f"Generating rate series of {len(self.tau_kn[0])} years using {method} method.")
+
+    # Once rates are selected, (re)build cumulative inflation multipliers.
+    # self.gamma_n = _genGamma_n(self.tau_kn)
+
+    solve_and_save(plan, output_file, toml_text)
 
     if plan.caseStatus != "solved":
         return PlanRunResult(status=plan.caseStatus)

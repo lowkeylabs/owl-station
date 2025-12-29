@@ -1,0 +1,3 @@
+# No subdir on purpose
+dir: runs/${now:%Y-%m-%d}/${now:%H-%M-%S}
+subdir: ${hydra:job.id}

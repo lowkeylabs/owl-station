@@ -1,0 +1,58 @@
+"Plan Name" = "joe"
+Description = "This is an example of a case involving a single individual. Joe is single and will retire in a few years. His wages and contributions are contained in the 'joe.xlsx' spreadsheet."
+
+["Basic Info"]
+Status = "single"
+Names = [ "Joe",]
+"Date of birth" = [ "1966-01-15",]
+"Life expectancy" = [ 89,]
+"Start date" = "2025-01-01"
+
+[Assets]
+"taxable savings balances" = [ 338.5,]
+"tax-deferred savings balances" = [ 650.2,]
+"tax-free savings balances" = [ 60.6,]
+
+["Household Financial Profile"]
+"HFP file name" = "HFP_joe.xlsx"
+
+["Fixed Income"]
+"Pension monthly amounts" = [ 0,]
+"Pension ages" = [ 65.0,]
+"Pension indexed" = [ true,]
+"Social security PIA amounts" = [ 2360,]
+"Social security ages" = [ 67.0,]
+
+["Rates Selection"]
+"Heirs rate on tax-deferred estate" = 30.0
+"Dividend rate" = 1.8000000000000003
+"OBBBA expiration year" = 2032
+Method = "historical average"
+From = 1969
+To = 2002
+
+["Asset Allocation"]
+"Interpolation method" = "s-curve"
+"Interpolation center" = 15.0
+"Interpolation width" = 5.0
+Type = "individual"
+generic = [ [ [ 60, 40, 0, 0,], [ 70, 30, 0, 0,],],]
+
+["Optimization Parameters"]
+"Spending profile" = "smile"
+"Surviving spouse spending percent" = 60
+"Smile dip" = 15
+"Smile increase" = 12
+"Smile delay" = 0
+Objective = "maxSpending"
+
+["Solver Options"]
+maxRothConversion = 50
+startRothConversions = 2025
+bequest = 300
+
+[Results]
+"Default plots" = "nominal"
+
+[OwlStation]
+enable = true

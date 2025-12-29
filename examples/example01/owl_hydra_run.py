@@ -4,18 +4,47 @@ from pathlib import Path
 
 import hydra
 from hydra.core.hydra_config import HydraConfig
+from hydra.utils import to_absolute_path
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
 
 from owlstation.core.configure_logging import configure_logging
 from owlstation.core.override_parser import hydra_overrides_to_dict
 from owlstation.core.owl_runner import run_single_case
+from owlstation.core.toml_utils import toml_plan_name
 
 # Loguru needs to initially be set OUTSIDE of main
 level = os.getenv("OWLSTATION_LOG_LEVEL")
 if not level:
     level = "INFO"  # <- this level MUST match conf/logging/default.yaml default setting!
 configure_logging(log_level=level)
+
+# Store project root - hydra changes directories a lot!
+PROJECT_ROOT = Path.cwd().resolve()
+
+
+# Helper to guard against Hydra job.id not being set (single- vs multi-runs)
+def get_job_id(hc) -> str:
+    """
+    Return a stable job id for logging and paths.
+
+    - Multirun: "0", "1", ...
+    - Single run: "0"
+    """
+    try:
+        job_id = hc.job.id
+        if job_id is None:
+            return "0"
+        return str(job_id)
+    except Exception:
+        return "0"
+
+
+OmegaConf.register_new_resolver(
+    "toml.plan_name",
+    toml_plan_name,
+    use_cache=True,  # important: prevents re-reading file repeatedly
+)
 
 
 @hydra.main(
@@ -31,6 +60,18 @@ def main(cfg: DictConfig):
     - Supports single runs and multiruns (-m)
     - Produces one output workbook per scenario
     """
+    # -------------------------------------------------
+    # Validate case.file
+    # -------------------------------------------------
+    if not cfg.case.file:
+        raise RuntimeError("case.file must be set")
+
+    case_file = Path(cfg.case.file)
+    if not case_file.is_absolute():
+        case_file = PROJECT_ROOT / case_file
+
+    if not case_file.exists():
+        raise FileNotFoundError(f"Case file not found: {case_file}")
 
     # -------------------------------------------------
     # Configure Loguru from Hydra config
@@ -44,7 +85,8 @@ def main(cfg: DictConfig):
     if not hasattr(cfg, "case") or not hasattr(cfg.case, "file"):
         raise RuntimeError("Hydra config must define case.file (path to TOML case file).")
 
-    case_file = Path(cfg.case.file)
+    # case_file = Path(cfg.case.file)
+    case_file = Path(to_absolute_path(cfg.case.file))
 
     if not case_file.exists():
         raise FileNotFoundError(f"Case file not found: {case_file}")
@@ -54,12 +96,14 @@ def main(cfg: DictConfig):
     # -------------------------------------------------
     hc = HydraConfig.get()
     raw_overrides = hc.overrides.task
+    job_id = get_job_id(hc)
 
-    hc_dict = OmegaConf.to_container(
-        hc,
-        resolve=True,
-    )
-    logger.trace("HydraConfig dump:\n{}", OmegaConf.to_yaml(hc_dict))
+    if 0:
+        hc_dict = OmegaConf.to_container(
+            hc,
+            resolve=True,
+        )
+        logger.trace("HydraConfig dump:\n{}", OmegaConf.to_yaml(hc_dict))
 
     # -------------------------------------------------
     # Parse semantic overrides (shared with cmd_run)
@@ -67,8 +111,8 @@ def main(cfg: DictConfig):
     overrides = hydra_overrides_to_dict(raw_overrides)
 
     logger.info(
-        "Job {} - overrides: {}",
-        hc.job.num,
+        "{} - overrides: {}",
+        job_id,
         " ".join(raw_overrides),
     )
 
@@ -76,8 +120,9 @@ def main(cfg: DictConfig):
     # Hydra-managed run directory
     # -------------------------------------------------
     # Hydra has already chdir()'d into the job directory
-    run_dir = Path(hc.runtime.output_dir)
+    run_dir = Path.cwd()
     run_dir.mkdir(parents=True, exist_ok=True)
+    logger.info("{} - Run directory: {}", job_id, run_dir.relative_to(PROJECT_ROOT))
 
     # -------------------------------------------------
     # Output filename (no redundancy needed)
@@ -93,15 +138,15 @@ def main(cfg: DictConfig):
         output_file=str(output_file),
     )
 
-    logger.info("Job {} - Case status: {}", hc.job.num, result.status)
+    logger.info("{} - Case status: {}", job_id, result.status)
 
     if result.status != "solved":
         logger.warning("Case did not solve; no output written.")
         return
 
     logger.info(
-        "Job {} - Results saved to: {}",
-        hc.job.num,
+        "{} - Results saved to: {}",
+        job_id,
         output_file.relative_to(Path.cwd()),
     )
 
