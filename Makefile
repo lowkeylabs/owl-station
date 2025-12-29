@@ -3,7 +3,7 @@
 help:
 	cat Makefile
 
-sync:
+sync-dev:
 	uv sync --extra dev
 
 pre-commit:
@@ -12,4 +12,4 @@ pre-commit:
 pytest:
 	uv run pytest
 
-test: sync pre-commit pytest
+test: sync-dev pre-commit pytest
