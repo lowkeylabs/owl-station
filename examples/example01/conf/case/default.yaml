@@ -1,2 +1,0 @@
-file: ???
-name: ${toml.plan_name:${case.file}}

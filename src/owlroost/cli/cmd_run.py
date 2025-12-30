@@ -12,6 +12,34 @@ from loguru import logger
 # ---------------------------------------------------------------------
 
 
+def normalize_hydra_overrides(overrides: list[str]) -> list[str]:
+    """
+    Normalize Hydra overrides:
+      - Convert comma-separated values to list syntax
+        unless already quoted or bracketed.
+    """
+    normalized = []
+
+    for o in overrides:
+        if "=" not in o:
+            normalized.append(o)
+            continue
+
+        key, val = o.split("=", 1)
+
+        if (
+            "," in val
+            and not val.startswith("[")
+            and not val.endswith("]")
+            and not (val.startswith("'") or val.startswith('"'))
+        ):
+            val = f"[{val}]"
+
+        normalized.append(f"{key}={val}")
+
+    return normalized
+
+
 def find_case_files(directory: Path) -> list[Path]:
     """Return sorted list of .toml case files."""
     return sorted(directory.glob("*.toml"))
@@ -77,6 +105,7 @@ def build_hydra_command(
     cmd = [
         sys.executable,
         str(script),
+        "--multirun",
         f"--config-path={conf_dir}",
         "--config-name=config",
     ]
@@ -128,6 +157,7 @@ def cmd_run(ctx: click.Context, case: str | None):
 
     # Remaining args → Hydra overrides
     hydra_overrides = ctx.args
+    # hydra_overrides = normalize_hydra_overrides(ctx.args)
 
     logger.debug("Resolved case: {}", case_file)
     logger.debug("Hydra overrides: {}", hydra_overrides)

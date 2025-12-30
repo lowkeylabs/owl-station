@@ -1,1 +1,0 @@
-level: ${oc.env:OWLROOST_LOG_LEVEL,INFO}

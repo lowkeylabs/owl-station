@@ -36,25 +36,46 @@ def apply_longevity_override(diconf: dict, cfg_longevity: dict):
     """
     Apply longevity overrides from merged Hydra config.
 
-    cfg_longevity example:
-        {"values": [99, None]}
+    Supported forms:
+      {"values": [80, None]}
+      {"values": {0: 80}}
+      {"values": 80}   # single-person case
     """
     expectancy = diconf["Basic Info"]["Life expectancy"]
 
-    values = cfg_longevity.get("values", [])
+    values = cfg_longevity.get("values")
 
-    if not isinstance(values, (list | tuple)):
-        raise TypeError("longevity.values must be a list")
+    # -------------------------------
+    # Scalar → person 0
+    # -------------------------------
+    if isinstance(values, (int | float)):
+        expectancy[0] = int(values)
+        return
 
-    if len(values) > len(expectancy):
-        raise ValueError(
-            f"Longevity override has {len(values)} values, "
-            f"but dataset only has {len(expectancy)} people"
-        )
+    # -------------------------------
+    # Dict index overrides (Hydra)
+    # -------------------------------
+    if isinstance(values, dict):
+        for i, le in values.items():
+            if le is not None:
+                expectancy[int(i)] = int(le)
+        return
 
-    for i, le in enumerate(values):
-        if le is not None:
-            expectancy[i] = int(le)
+    # -------------------------------
+    # List overrides (TOML-style)
+    # -------------------------------
+    if isinstance(values, (list | tuple)):
+        if len(values) > len(expectancy):
+            raise ValueError(
+                f"Longevity override has {len(values)} values, "
+                f"but dataset only has {len(expectancy)} people"
+            )
+        for i, le in enumerate(values):
+            if le is not None:
+                expectancy[i] = int(le)
+        return
+
+    raise TypeError(f"Unsupported longevity.values type: {type(values)}")
 
 
 def apply_optimization_override(diconf: dict, value: dict):
@@ -91,6 +112,7 @@ def apply_solver_override(diconf: dict, value: dict):
     # -------------------------------------------------
     for k, v in value.items():
         solver[k] = v
+        logger.debug("Applied solver override: {}={}", k, v)
 
 
 OVERRIDE_HANDLERS = {

@@ -53,6 +53,8 @@ def metrics_from_plan(plan) -> dict:
 
     total_final_bequest_real = float(total_final_bequest_nominal / plan.gamma_n[-1])
 
+    net_spending_for_plan_year_0 = plan.g_n[0]
+
     return {
         # metadata
         "schema": "owl.metrics.v1",
@@ -86,6 +88,8 @@ def metrics_from_plan(plan) -> dict:
         # totals — estate
         "total_final_bequest_real": total_final_bequest_real,
         "total_final_bequest_nominal": total_final_bequest_nominal,
+        # net spending
+        "net_spending_for_plan_year_0": net_spending_for_plan_year_0,
     }
 
 

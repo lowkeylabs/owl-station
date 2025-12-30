@@ -1,18 +1,3 @@
-"""
-roost results command
-
-Summarize and inspect OWL results produced via Hydra.
-
-Supports:
-  - case summary
-  - per-case experiment breakdown
-  - Hydra overrides (excluding case.file)
-  - semantic diff between TOML files:
-      --diff          : _original.toml → _effective.toml
-      --diff-project  : project Case_<name>.toml → _effective.toml
-  - metrics display (net spending, bequest)
-"""
-
 from __future__ import annotations
 
 import json
@@ -29,7 +14,6 @@ import yaml
 # ---------------------------------------------------------------------
 
 RESULTS_DIR = Path("results")
-
 IGNORE_PREFIXES = ("Hydra", "hydra")
 
 # ---------------------------------------------------------------------
@@ -38,11 +22,17 @@ IGNORE_PREFIXES = ("Hydra", "hydra")
 
 
 @dataclass
+class RunResult:
+    run_dir: Path
+    run_name: str
+    run_type: Literal["single", "multi"]
+    overrides: list[str]
+
+
+@dataclass
 class Experiment:
     type: Literal["single", "multi"]
-    run_count: int
-    overrides: list[str]
-    sample_run: Path  # representative run dir (None/ or run_0)
+    runs: list[RunResult]
 
 
 @dataclass
@@ -58,7 +48,6 @@ class Case:
 
 
 def format_k(value) -> str:
-    """Format dollar value as rounded $K."""
     if value is None:
         return "—"
     try:
@@ -68,7 +57,6 @@ def format_k(value) -> str:
 
 
 def strip_override_prefix(override: str) -> str:
-    """Remove top-level Hydra key (optimization., solver., etc.)."""
     if "." in override:
         return override.split(".", 1)[1]
     return override
@@ -81,19 +69,37 @@ def strip_override_prefix(override: str) -> str:
 
 @click.command(name="results")
 @click.argument("case", required=False)
+@click.argument("run_id", required=False, type=int)  # ← NEW
 @click.option("--diff", is_flag=True, help="Diff _original.toml vs _effective.toml.")
 @click.option(
     "--diff-project",
     is_flag=True,
     help="Diff project Case_<name>.toml vs _effective.toml.",
 )
+@click.option("--metrics", is_flag=True, help="Show metrics.json (default for run ID).")
+@click.option("--summary", is_flag=True, help="Show summary.json for run ID.")
+@click.option("--original", is_flag=True, help="Show _original.toml for run ID.")
+@click.option("--effective", is_flag=True, help="Show _effective.toml for run ID.")
 @click.option("--nominal", is_flag=True, help="Show nominal dollars (default: real).")
-def cmd_results(case: str | None, diff: bool, diff_project: bool, nominal: bool):
-    """
-    Inspect results produced by OWL runs.
-    """
+def cmd_results(
+    case: str | None,
+    run_id: int | None,
+    diff: bool,
+    diff_project: bool,
+    metrics: bool,
+    summary: bool,
+    original: bool,
+    effective: bool,
+    nominal: bool,
+):
     if diff and diff_project:
         raise click.ClickException("Use only one of --diff or --diff-project")
+
+    display_flags = [metrics, summary, original, effective]
+    if sum(bool(f) for f in display_flags) > 1:
+        raise click.ClickException(
+            "Use only one of --metrics, --summary, --original, or --effective"
+        )
 
     value_mode = "nominal" if nominal else "real"
 
@@ -102,22 +108,56 @@ def cmd_results(case: str | None, diff: bool, diff_project: bool, nominal: bool)
         return
 
     cases = discover_cases(RESULTS_DIR)
-
     if not cases:
         click.echo("No cases found in ./results.")
         return
 
-    if (diff or diff_project) and case is None:
-        raise click.ClickException("--diff options require a CASE")
-
+    # --------------------------------------------------
+    # No CASE → case summary
+    # --------------------------------------------------
     if case is None:
         render_case_summary(cases)
-    else:
-        selected = resolve_case(case, cases)
+        return
+
+    selected = resolve_case(case, cases)
+
+    # --------------------------------------------------
+    # CASE only → full table
+    # --------------------------------------------------
+    if run_id is None:
         render_case_breakdown(
             selected,
             diff_mode="original" if diff else "project" if diff_project else None,
             value_mode=value_mode,
+        )
+        return
+
+    # --------------------------------------------------
+    # CASE + RUN_ID → per-run inspection (NEW)
+    # --------------------------------------------------
+    runs = flatten_runs(selected)
+
+    if run_id < 0 or run_id >= len(runs):
+        raise click.ClickException(f"Invalid run ID: {run_id}")
+
+    run = runs[run_id]
+
+    # Default: metrics
+    if not any([metrics, summary, original, effective]):
+        metrics = True
+
+    if summary:
+        render_summary(run.run_dir)
+    elif metrics:
+        render_metrics(run.run_dir)
+    elif original:
+        render_original_toml(run.run_dir)
+    elif effective:
+        render_effective_toml(run.run_dir)
+    else:
+        render_run_diff(
+            run.run_dir,
+            diff_mode="original" if diff else "project",
         )
 
 
@@ -139,37 +179,49 @@ def discover_cases(results_dir: Path) -> list[Case]:
     return cases
 
 
+def run_index(run_dir: Path) -> int:
+    try:
+        return int(run_dir.name.split("_", 1)[1])
+    except Exception:
+        return 10**9
+
+
 def discover_experiments(case_dir: Path) -> list[Experiment]:
     experiments: list[Experiment] = []
 
     for date_dir in sorted(p for p in case_dir.iterdir() if p.is_dir()):
         for time_dir in sorted(p for p in date_dir.iterdir() if p.is_dir()):
+            runs: list[RunResult] = []
             multirun_file = time_dir / "multirun.yaml"
 
             if multirun_file.exists():
-                runs = sorted(time_dir.glob("run_*"))
-                if not runs:
-                    continue
-                experiments.append(
-                    Experiment(
-                        type="multi",
-                        run_count=len(runs),
-                        overrides=extract_multirun_overrides(time_dir),
-                        sample_run=runs[0],
+                for run_dir in sorted(time_dir.glob("run_*"), key=run_index):
+                    runs.append(
+                        RunResult(
+                            run_dir=run_dir,
+                            run_name=run_dir.name,
+                            run_type="multi",
+                            overrides=extract_run_overrides(run_dir / "hydra_meta.yaml"),
+                        )
                     )
-                )
+                if runs:
+                    experiments.append(Experiment(type="multi", runs=runs))
             else:
-                single = time_dir / "None"
-                if not single.exists():
-                    continue
-                experiments.append(
-                    Experiment(
-                        type="single",
-                        run_count=0,
-                        overrides=extract_single_overrides(time_dir),
-                        sample_run=single,
+                single_dir = time_dir / "None"
+                if single_dir.exists():
+                    experiments.append(
+                        Experiment(
+                            type="single",
+                            runs=[
+                                RunResult(
+                                    run_dir=single_dir,
+                                    run_name="None",
+                                    run_type="single",
+                                    overrides=extract_run_overrides(single_dir / "hydra_meta.yaml"),
+                                )
+                            ],
+                        )
                     )
-                )
 
     return experiments
 
@@ -179,40 +231,18 @@ def discover_experiments(case_dir: Path) -> list[Experiment]:
 # ---------------------------------------------------------------------
 
 
-def extract_multirun_overrides(time_dir: Path) -> list[str]:
-    path = time_dir / "multirun.yaml"
-    if not path.exists():
+def extract_run_overrides(meta_path: Path) -> list[str]:
+    if not meta_path.exists():
         return []
 
     try:
-        data = yaml.safe_load(path.read_text()) or {}
+        data = yaml.safe_load(meta_path.read_text()) or {}
     except Exception:
         return []
 
-    overrides = data.get("hydra", {}).get("overrides", {}).get("task", [])
-
     return [
         strip_override_prefix(o)
-        for o in overrides
-        if isinstance(o, str) and not o.startswith("case.file=")
-    ]
-
-
-def extract_single_overrides(time_dir: Path) -> list[str]:
-    meta = time_dir / "None" / "hydra_meta.yaml"
-    if not meta.exists():
-        return []
-
-    try:
-        data = yaml.safe_load(meta.read_text()) or {}
-    except Exception:
-        return []
-
-    overrides = data.get("overrides", [])
-
-    return [
-        strip_override_prefix(o)
-        for o in overrides
+        for o in data.get("overrides", [])
         if isinstance(o, str) and not o.startswith("case.file=")
     ]
 
@@ -224,16 +254,12 @@ def extract_single_overrides(time_dir: Path) -> list[str]:
 
 def load_effective_toml(run_dir: Path) -> dict | None:
     p = next(run_dir.glob("*_effective.toml"), None)
-    if not p:
-        return None
-    return tomllib.load(p.open("rb"))
+    return tomllib.load(p.open("rb")) if p else None
 
 
 def load_original_toml(run_dir: Path) -> dict | None:
     p = next(run_dir.glob("*_original.toml"), None)
-    if not p:
-        return None
-    return tomllib.load(p.open("rb"))
+    return tomllib.load(p.open("rb")) if p else None
 
 
 def load_project_toml(run_dir: Path) -> dict | None:
@@ -243,19 +269,57 @@ def load_project_toml(run_dir: Path) -> dict | None:
     if not src or not src.name.startswith("Case_"):
         return None
 
-    base = src.name.rsplit("_", 1)[0]
-    path = Path(f"{base}.toml")
-    if not path.exists():
-        return None
-
-    return tomllib.load(path.open("rb"))
+    path = Path(f"{src.name.rsplit('_', 1)[0]}.toml")
+    return tomllib.load(path.open("rb")) if path.exists() else None
 
 
 def load_metrics(run_dir: Path) -> dict | None:
     p = next(run_dir.glob("*_metrics.json"), None)
+    return json.load(p.open()) if p else None
+
+
+# ---------------------------------------------------------------------
+# Rendering helpers (NEW)
+# ---------------------------------------------------------------------
+
+
+def flatten_runs(case: Case) -> list[RunResult]:
+    runs: list[RunResult] = []
+    for exp in case.experiments:
+        runs.extend(exp.runs)
+    return runs
+
+
+def render_metrics(run_dir: Path):
+    data = load_metrics(run_dir)
+    if not data:
+        click.echo("(no metrics found)")
+        return
+    click.echo(json.dumps(data, indent=2, sort_keys=False))
+
+
+def render_summary(run_dir: Path):
+    p = next(run_dir.glob("*_summary.json"), None)
     if not p:
-        return None
-    return json.load(p.open())
+        click.echo("(no summary found)")
+        return
+    click.echo(json.dumps(json.load(p.open()), indent=2, sort_keys=False))
+
+
+def render_original_toml(run_dir: Path):
+    p = next(run_dir.glob("*_original.toml"), None)
+    if not p:
+        click.echo("(no original TOML found)")
+        return
+    click.echo(p.read_text(encoding="utf-8"))
+
+
+def render_effective_toml(run_dir: Path):
+    p = next(run_dir.glob("*_effective.toml"), None)
+    if not p:
+        click.echo("(no effective TOML found)")
+        return
+    click.echo(p.read_text(encoding="utf-8"))
 
 
 # ---------------------------------------------------------------------
@@ -265,117 +329,102 @@ def load_metrics(run_dir: Path) -> dict | None:
 
 def render_case_summary(cases: list[Case]):
     click.echo(f"Found {len(cases)} cases in ./results\n")
-    header = f"{'ID':<3} {'CASE NAME':<25} {'EXPERIMENTS':<12}"
+
+    header = f"{'ID':<3} {'CASE NAME':<25} {'EXPERIMENTS':<12} {'RUNS':<6}"
     click.echo(header)
     click.echo("-" * len(header))
 
     for idx, case in enumerate(cases):
-        click.echo(f"{idx:<3} {case.name:<25} {len(case.experiments):<12}")
+        exp_count = len(case.experiments)
+        run_count = sum(len(exp.runs) for exp in case.experiments)
+
+        click.echo(f"{idx:<3} " f"{case.name:<25} " f"{exp_count:<12} " f"{run_count:<6}")
 
 
 def render_case_breakdown(case: Case, diff_mode: str | None, value_mode: str):
     click.echo(f"\nCase: {case.name}\n")
 
-    # -------------------------
-    # Column widths (tuned)
-    # -------------------------
+    # Column widths
+    w_exp = 3
     w_id = 3
-    w_run = 5
+    w_run = 6
     w_type = 7
     w_obj = 12
-    w_avg = 9  # NEW: $/yr column
+    w_avg = 9
     w_net = 9
     w_beq = 9
 
-    # -------------------------
-    # Two-line header
-    # -------------------------
     header1 = (
-        f"{'':<{w_id}} "
-        f"{'':<{w_run}} "
-        f"{'':<{w_type}} "
-        f"{'':<{w_obj}} "
-        f"{'$/yr':>{w_avg}} "
-        f"{'NetSpend':>{w_net}} "
-        f"{'Bequest':>{w_beq}}   "
-        f"{'Overrides'}"
+        f"{'':>{w_exp}} {'':>{w_id}} {'':>{w_run}} {'':<{w_type}} {'':<{w_obj}} "
+        f"{'$/yr':>{w_avg}} {'NetSpend':>{w_net}} {'Bequest':>{w_beq}}   Overrides"
     )
-
     header2 = (
-        f"{'ID':<{w_id}} "
-        f"{'Name':<{w_run}} "
-        f"{'Type':<{w_type}} "
-        f"{'Objective':<{w_obj}} "
-        f"{'(real $K)':>{w_avg}} "
-        f"{f'({value_mode} $K)':>{w_net}} "
-        f"{f'({value_mode} $K)':>{w_beq}}"
+        f"{'EXP':>{w_exp}} {'ID':>{w_id}} {'Name':<{w_run}} {'Type':<{w_type}} {'Objective':<{w_obj}} "
+        f"{'(real $K)':>{w_avg}} ({value_mode} $K){'':>{w_net - len(value_mode) - 3}} "
+        f"({value_mode} $K)"
     )
 
     click.echo(header1)
     click.echo(header2)
     click.echo("-" * max(len(header1), len(header2)))
 
-    # -------------------------
-    # Rows
-    # -------------------------
-    for idx, exp in enumerate(case.experiments):
-        run_name = exp.sample_run.name
-        eff = load_effective_toml(exp.sample_run) or {}
-        metrics = load_metrics(exp.sample_run) or {}
+    row_id = 0
 
-        objective = eff.get("Optimization Parameters", {}).get("Objective", "—")
+    for exp_id, exp in enumerate(case.experiments):
+        for run in exp.runs:
+            eff = load_effective_toml(run.run_dir) or {}
+            metrics = load_metrics(run.run_dir) or {}
 
-        # --- Net / Bequest totals ---
-        net_key = f"total_net_spending_{value_mode}"
-        beq_key = f"total_final_bequest_{value_mode}"
+            objective = eff.get("Optimization Parameters", {}).get("Objective", "—")
 
-        net = format_k(metrics.get(net_key))
-        beq = format_k(metrics.get(beq_key))
+            net_key = f"total_net_spending_{value_mode}"
+            beq_key = f"total_final_bequest_{value_mode}"
 
-        # --- NEW: average real $ / year ---
-        try:
-            total_real = metrics.get("total_net_spending_real")
-            y0 = metrics.get("year_start")
-            y1 = metrics.get("year_final_bequest")
+            net = format_k(metrics.get(net_key))
+            beq = format_k(metrics.get(beq_key))
 
-            if total_real is not None and y0 is not None and y1 is not None:
-                years = y1 - y0 + 1
-                avg_real = (total_real / years) / 1000.0
-                avg_fmt = f"${avg_real:,.1f}K"
-            else:
-                avg_fmt = "—"
-        except Exception:
-            avg_fmt = "—"
+            try:
+                y0_spend = metrics.get("net_spending_for_plan_year_0")
+                if y0_spend is not None:
+                    y0_spend = y0_spend / 1000.0
+                    y0_fmt = f"${y0_spend:,.1f}K"
+                else:
+                    y0_fmt = "—"
+            except Exception:
+                y0_fmt = "—"
 
-        overrides = ", ".join(exp.overrides) if exp.overrides else "—"
+            overrides = ", ".join(run.overrides) if run.overrides else "—"
 
-        click.echo(
-            f"{idx:<{w_id}} "
-            f"{run_name:<{w_run}} "
-            f"{exp.type:<{w_type}} "
-            f"{objective:<{w_obj}} "
-            f"{avg_fmt:>{w_avg}} "
-            f"{net:>{w_net}} "
-            f"{beq:>{w_beq}}   "
-            f"{overrides}"
-        )
+            click.echo(
+                f"{exp_id:>{w_exp}} "
+                f"{row_id:>{w_id}} "
+                f"{run.run_name:<{w_run}} "
+                f"{run.run_type:<{w_type}} "
+                f"{objective:<{w_obj}} "
+                f"{y0_fmt:>{w_avg}} "
+                f"{net:>{w_net}} "
+                f"{beq:>{w_beq}}   "
+                f"{overrides}"
+            )
 
-        if diff_mode:
-            render_experiment_diff(exp, diff_mode)
-            click.echo()
+            if diff_mode:
+                render_run_diff(run.run_dir, diff_mode)
+                click.echo()
+
+            row_id += 1
 
 
-def render_experiment_diff(exp: Experiment, diff_mode: str):
-    effective = load_effective_toml(exp.sample_run)
+def render_run_diff(run_dir: Path, diff_mode: str):
+    effective = load_effective_toml(run_dir)
     if not effective:
         click.echo("  (no effective TOML found)")
         return
 
     if diff_mode == "original":
-        base = load_original_toml(exp.sample_run)
+        base = load_original_toml(run_dir)
         label = "original"
     else:
-        base = load_project_toml(exp.sample_run)
+        base = load_project_toml(run_dir)
         label = "project"
 
     if not base:
@@ -388,8 +437,24 @@ def render_experiment_diff(exp: Experiment, diff_mode: str):
         return
 
     click.echo(f"  Diff ({label} → effective):")
+
+    # -------------------------
+    # Changed values
+    # -------------------------
     for k, (a, b) in diffs["changed"].items():
-        click.echo(f"    {k}: {a} → {b}")
+        click.echo(f"    ~ {k}: {a} → {b}")
+
+    # -------------------------
+    # Added values
+    # -------------------------
+    for k, v in diffs["added"].items():
+        click.echo(f"    + {k}: {v}")
+
+    # -------------------------
+    # Removed values
+    # -------------------------
+    for k, v in diffs["removed"].items():
+        click.echo(f"    - {k}: {v}")
 
 
 # ---------------------------------------------------------------------
