@@ -1,0 +1,6 @@
+mode: RUN
+job_id: '0'
+overrides:
+- case.file=/home/john/projects/owl-roost/examples/example01/Case_jack+jill.toml
+- optimization.Objective=maxBequest
+- solver.netSpending=70

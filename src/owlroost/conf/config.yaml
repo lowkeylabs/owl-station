@@ -1,23 +1,21 @@
-# conf/config.yaml
-
 defaults:
   - logging: default
   - longevity: default
+  - optimization: default
+  - solver: default
   - case: default
+  - hydra/sweep: basic
+  - override hydra/sweep: flat
+  - override hydra/hydra_logging: disabled
+  - override hydra/job_logging: disabled
+  - override hydra/launcher: joblib
+  - _self_
 
-# ------------------------------------------------------------------
-# Hydra configuration
-# ------------------------------------------------------------------
 hydra:
-  # Make Hydra use ./conf relative to the *current working directory*
-  # (shared with Click-based runner)
-  searchpath:
-    - file://${oc.env:PWD}/conf
-
-  # Keep Hydra output structure clean and predictable
-  run:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
-
-  sweep:
-    dir: outputs/${now:%Y-%m-%d}/${now:%H-%M-%S}
-    subdir: ${hydra.job.num}
+  run:   # Sweep isn't needed because we're overriding above
+    dir: results/${case.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}/${hydra:job.id}
+  job:
+    chdir: true
+    name: run
+  launcher:
+    n_jobs: 1

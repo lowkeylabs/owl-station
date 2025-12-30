@@ -1,2 +1,2 @@
-jack: 89
-jill: 92
+# conf/longevity/default.yaml
+values: [null,null]

@@ -1,1 +1,2 @@
-file: Case_jack+jill.toml
+file: ???
+name: ${toml.plan_name:${case.file}}

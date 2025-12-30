@@ -1,0 +1,2 @@
+dir: results/${case.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}
+subdir: ${hydra:job.id}

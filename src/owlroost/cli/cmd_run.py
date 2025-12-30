@@ -1,48 +1,92 @@
 # src/owlroost/cli/cmd_run.py
 
+import subprocess
+import sys
 from pathlib import Path
 
 import click
 from loguru import logger
-from openpyxl import load_workbook
 
-from owlroost.core.owl_runner import run_single_case
+# ---------------------------------------------------------------------
+# Helpers
+# ---------------------------------------------------------------------
 
 
-def insert_text_as_first_sheet(
-    xlsx_path: Path,
-    text: str,
-    sheet_name: str = "Config (resolved TOML)",
-):
+def find_case_files(directory: Path) -> list[Path]:
+    """Return sorted list of .toml case files."""
+    return sorted(directory.glob("*.toml"))
+
+
+def resolve_case_arg(arg: str | None, cases: list[Path]) -> Path | None:
     """
-    Insert provided text (resolved TOML) as the first worksheet.
+    Resolve a case argument which may be:
+      - None          → no case specified
+      - filename      → exact match
+      - integer index → positional case selection
     """
-    wb = load_workbook(xlsx_path)
-    ws = wb.create_sheet(title=sheet_name, index=0)
-
-    for row_idx, line in enumerate(text.splitlines(), start=1):
-        ws.cell(row=row_idx, column=1, value=line)
-
-    wb.save(xlsx_path)
-
-
-def validate_toml(ctx, param, value: Path):
-    if value is None:
+    if arg is None:
         return None
 
-    if value.suffix == "":
-        value = value.with_suffix(".toml")
+    # Numeric ID
+    if arg.isdigit():
+        idx = int(arg)
+        try:
+            return cases[idx]
+        except IndexError:
+            raise click.BadParameter(f"No case with id {idx}") from None
 
-    if value.suffix.lower() != ".toml":
-        raise click.BadParameter("File must have a .toml extension")
+    # Filename
+    path = Path(arg)
+    if path.suffix == "":
+        path = path.with_suffix(".toml")
 
-    if not value.exists():
-        raise click.BadParameter(f"File '{value}' does not exist")
+    if not path.exists():
+        raise click.BadParameter(f"Case file '{path}' does not exist") from None
 
-    if not value.is_file():
-        raise click.BadParameter(f"'{value}' is not a file")
+    return path.resolve()
 
-    return value
+
+def list_cases(cases: list[Path]) -> None:
+    """Print indexed case list."""
+    if not cases:
+        click.echo("No .toml case files found.")
+        return
+
+    click.echo("Available cases:")
+    for i, case in enumerate(cases):
+        click.echo(f"  [{i}] {case.name}")
+
+
+def build_hydra_command(
+    case_file: Path | None,
+    overrides: list[str],
+) -> list[str]:
+    """
+    Construct subprocess command invoking owl_hydra_run.py.
+    """
+    package_root = Path(__file__).parents[1]  # src/owlroost
+    script = package_root / "hydra" / "owl_hydra_run.py"
+    conf_dir = package_root / "conf"
+
+    if not script.exists():
+        raise RuntimeError(f"Hydra runner not found: {script}") from None
+
+    if not conf_dir.exists():
+        raise RuntimeError(f"Hydra conf directory not found: {conf_dir}") from None
+
+    cmd = [
+        sys.executable,
+        str(script),
+        f"--config-path={conf_dir}",
+        "--config-name=config",
+    ]
+
+    if case_file:
+        cmd.append(f"case.file={case_file}")
+
+    cmd.extend(overrides)
+
+    return cmd
 
 
 # ---------------------------------------------------------------------
@@ -57,53 +101,45 @@ def validate_toml(ctx, param, value: Path):
         allow_extra_args=True,
     ),
 )
-@click.argument(
-    "filename",
-    type=click.Path(exists=False, dir_okay=False, path_type=Path),
-    callback=validate_toml,
-)
+@click.argument("case", required=False)
 @click.pass_context
-def cmd_run(ctx, filename: Path):
+def cmd_run(ctx: click.Context, case: str | None):
     """
-    Run the OWLsolver for an input case (TOML) file.
+    Run OWL via Hydra.
 
-    - The TOML file defines the base case
-    - The resolved TOML is embedded in the output workbook
-    - Parameter sweeps are NOT supported here
+    Usage:
+      roost run              → list available cases
+      roost run <case.toml>  → run a specific case
+      roost run <id>         → run case by index
+
+    Any additional arguments are forwarded directly to Hydra.
     """
 
-    logger.debug("Executing run command with file: {}", filename)
+    cwd = Path.cwd()
+    cases = find_case_files(cwd)
 
-    # -----------------------------
-    # Output filename
-    # -----------------------------
-    # Keep filename stable; scenario details live in:
-    #   - embedded resolved TOML
-    #   - Hydra metadata
-
-    output_filename = filename.with_suffix(".xlsx")
-
-    # -----------------------------
-    # Run OWL via core runner
-    # -----------------------------
-    result = run_single_case(
-        case_file=str(filename),
-        overrides=None,
-        output_file=str(output_filename),
-    )
-
-    logger.info(f"Case status: {result.status}")
-
-    if result.status != "solved":
+    # No argument → list cases
+    if case is None:
+        list_cases(cases)
         return
 
-    # -----------------------------
-    # Insert resolved TOML
-    # -----------------------------
-    if 0 and result.adjusted_toml:
-        insert_text_as_first_sheet(
-            xlsx_path=output_filename,
-            text=result.adjusted_toml,
-        )
+    # Resolve case argument
+    case_file = resolve_case_arg(case, cases)
 
-    logger.info(f"Results saved to: {output_filename}")
+    # Remaining args → Hydra overrides
+    hydra_overrides = ctx.args
+
+    logger.debug("Resolved case: {}", case_file)
+    logger.debug("Hydra overrides: {}", hydra_overrides)
+
+    # Build subprocess command
+    cmd = build_hydra_command(case_file, hydra_overrides)
+
+    logger.info("Executing Hydra:")
+    logger.info("  {}", " ".join(cmd))
+
+    # Execute
+    try:
+        subprocess.run(cmd, check=True)
+    except subprocess.CalledProcessError as e:
+        raise click.ClickException(f"Hydra run failed (exit {e.returncode})") from None

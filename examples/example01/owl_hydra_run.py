@@ -1,4 +1,4 @@
-# src/owlstation/hydra/owl_hydra_run.py
+# src/owlroost/hydra/owl_hydra_run.py
 import os
 from pathlib import Path
 
@@ -7,13 +7,14 @@ from hydra.core.hydra_config import HydraConfig
 from hydra.utils import to_absolute_path
 from loguru import logger
 from omegaconf import DictConfig, OmegaConf
-from owlstation.core.configure_logging import configure_logging
-from owlstation.core.override_parser import hydra_overrides_to_dict
-from owlstation.core.owl_runner import run_single_case
-from owlstation.core.toml_utils import toml_plan_name
+
+from owlroost.core.configure_logging import configure_logging
+from owlroost.core.override_parser import hydra_overrides_to_dict
+from owlroost.core.owl_runner import run_single_case
+from owlroost.core.toml_utils import toml_plan_name
 
 # Loguru needs to initially be set OUTSIDE of main
-level = os.getenv("OWLSTATION_LOG_LEVEL")
+level = os.getenv("OWLROOST_LOG_LEVEL")
 if not level:
     level = "INFO"  # <- this level MUST match conf/logging/default.yaml default setting!
 configure_logging(log_level=level)
@@ -65,9 +66,8 @@ def main(cfg: DictConfig):
     if not cfg.case.file:
         raise RuntimeError("case.file must be set")
 
-    case_file = Path(cfg.case.file)
-    if not case_file.is_absolute():
-        case_file = PROJECT_ROOT / case_file
+    case_file = Path(to_absolute_path(cfg.case.file))
+    logger.debug(case_file)
 
     if not case_file.exists():
         raise FileNotFoundError(f"Case file not found: {case_file}")
@@ -83,12 +83,6 @@ def main(cfg: DictConfig):
     # -------------------------------------------------
     if not hasattr(cfg, "case") or not hasattr(cfg.case, "file"):
         raise RuntimeError("Hydra config must define case.file (path to TOML case file).")
-
-    # case_file = Path(cfg.case.file)
-    case_file = Path(to_absolute_path(cfg.case.file))
-
-    if not case_file.exists():
-        raise FileNotFoundError(f"Case file not found: {case_file}")
 
     # -------------------------------------------------
     # Hydra runtime info (SAFE for single + multirun)
@@ -120,13 +114,27 @@ def main(cfg: DictConfig):
     # -------------------------------------------------
     # Hydra has already chdir()'d into the job directory
     run_dir = Path.cwd()
-    run_dir.mkdir(parents=True, exist_ok=True)
+    # run_dir.mkdir(parents=True, exist_ok=True)
     logger.info("{} - Run directory: {}", job_id, run_dir.relative_to(PROJECT_ROOT))
 
     # -------------------------------------------------
     # Output filename (no redundancy needed)
     # -------------------------------------------------
     output_file = run_dir / f"{case_file.stem}.xlsx"
+
+    # -------------------------------------------------
+    # Save Hydra meta info for reproducibility
+    # -------------------------------------------------
+    OmegaConf.save(
+        OmegaConf.create(
+            {
+                "mode": hc.mode,
+                "job_id": job_id,
+                "overrides": raw_overrides,
+            }
+        ),
+        run_dir / "hydra_meta.yaml",
+    )
 
     # -------------------------------------------------
     # Run OWL via shared runner

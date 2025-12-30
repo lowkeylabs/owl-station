@@ -1,2 +1,2 @@
-P1: 85
-P2: 90
+# conf/longevity/default.yaml
+values: [null,null]

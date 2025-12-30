@@ -1,0 +1,3 @@
+- case.file=/home/john/projects/owl-roost/examples/example01/Case_jack+jill.toml
+- optimization.Objective=maxBequest
+- solver.netSpending=70

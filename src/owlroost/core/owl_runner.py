@@ -32,23 +32,29 @@ class PlanRunResult:
 # ---------------------------------------------------------------------
 
 
-def apply_longevity_override(diconf: dict, value: dict):
+def apply_longevity_override(diconf: dict, cfg_longevity: dict):
     """
-    Apply longevity overrides.
+    Apply longevity overrides from merged Hydra config.
 
-    value example:
-        {"Jack": 85, "Jill": 90}
+    cfg_longevity example:
+        {"values": [99, None]}
     """
-    names = diconf["Basic Info"]["Names"]
     expectancy = diconf["Basic Info"]["Life expectancy"]
 
-    for name, le in value.items():
-        try:
-            idx = names.index(name)
-        except ValueError as e:
-            raise RuntimeError(f"Person '{name}' not found in Basic Info.Names={names}") from e
+    values = cfg_longevity.get("values", [])
 
-        expectancy[idx] = int(le)
+    if not isinstance(values, (list | tuple)):
+        raise TypeError("longevity.values must be a list")
+
+    if len(values) > len(expectancy):
+        raise ValueError(
+            f"Longevity override has {len(values)} values, "
+            f"but dataset only has {len(expectancy)} people"
+        )
+
+    for i, le in enumerate(values):
+        if le is not None:
+            expectancy[i] = int(le)
 
 
 def apply_optimization_override(diconf: dict, value: dict):
@@ -100,11 +106,17 @@ def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, s
 
     diconf = deepcopy(diconf)
 
+    logger.debug(overrides)
     # -------------------------------------------------
     # Apply semantic overrides via handlers
     # -------------------------------------------------
     if overrides:
         for key, value in overrides.items():
+            # 🚫 Skip index-based overrides entirely
+            if "." in key:
+                logger.debug("Skipping index override: {}", key)
+                continue
+
             try:
                 handler = OVERRIDE_HANDLERS[key]
             except KeyError as e:
@@ -216,6 +228,8 @@ def run_single_case(
     ensuring all derived horizons and constraints
     are built correctly by OWL.
     """
+
+    logger.debug(overrides)
 
     SEMANTIC_OVERRIDE_KEYS = set(OVERRIDE_HANDLERS)
     if overrides:

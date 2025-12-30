@@ -7,6 +7,7 @@ from owlroost.core.solver_info import get_owl_solver_info
 from owlroost.version import __version__
 
 from .cmd_cases import cmd_cases
+from .cmd_run import cmd_run
 
 early_level = os.getenv("OWLSTATION_LOG_LEVEL", "INFO")
 if early_level:
@@ -51,6 +52,7 @@ def cli(ctx, log_level: str | None):
 
 
 cli.add_command(cmd_cases)
+cli.add_command(cmd_run)
 
 
 @cli.command()
