@@ -100,6 +100,18 @@ OVERRIDE_HANDLERS = {
 }
 
 
+def load_original_toml(case_file: str) -> str:
+    """
+    Load and normalize the original TOML with no overrides applied.
+    Returns normalized TOML text.
+    """
+    with open(case_file, encoding="utf-8") as f:
+        diconf = toml.load(f)
+
+    # Normalize via round-trip serialization
+    return toml.dumps(diconf)
+
+
 def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, str]:
     with open(case_file, encoding="utf-8") as f:
         diconf = toml.load(f)
@@ -178,7 +190,7 @@ def json_safe(obj):
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def solve_and_save(plan, output_file: str, effective_toml: str) -> None:
+def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: str) -> None:
     """
     Solve the plan and write output.
     """
@@ -194,17 +206,25 @@ def solve_and_save(plan, output_file: str, effective_toml: str) -> None:
 
     output_path = Path(output_file)
 
+    # Write METRICS JSON
     metrics_path = output_path.with_suffix("").with_name(  # strip .xlsx
         output_path.stem + "_metrics.json"
     )
     write_metrics_json(plan, metrics_path)
 
+    # Write SUMMARY JSON
     summary_path = output_path.with_suffix("").with_name(  # strip .xlsx
         output_path.stem + "_summary.json"
     )
     with open(summary_path, "w") as f:
         json.dump(plan.summaryDic(), f, indent=2, sort_keys=False, default=json_safe)
 
+    # Write ORIGINAL TOML
+    original_toml_path = output_path.with_suffix("").with_name(output_path.stem + "_original.toml")
+    with open(original_toml_path, "w", encoding="utf-8") as f:
+        f.write(original_toml)
+
+    # Write EFFECTIVE TOML
     toml_path = output_path.with_suffix("").with_name(output_path.stem + "_effective.toml")
     with open(toml_path, "w", encoding="utf-8") as f:
         f.write(effective_toml)
@@ -230,6 +250,11 @@ def run_single_case(
     """
 
     logger.debug(overrides)
+
+    # -------------------------------------------------
+    # Load and normalize ORIGINAL TOML (no overrides)
+    # -------------------------------------------------
+    original_toml = load_original_toml(case_file)
 
     SEMANTIC_OVERRIDE_KEYS = set(OVERRIDE_HANDLERS)
     if overrides:
@@ -259,7 +284,7 @@ def run_single_case(
     # Once rates are selected, (re)build cumulative inflation multipliers.
     # self.gamma_n = _genGamma_n(self.tau_kn)
 
-    solve_and_save(plan, output_file, toml_text)
+    solve_and_save(plan, output_file, toml_text, original_toml)
 
     if plan.caseStatus != "solved":
         return PlanRunResult(status=plan.caseStatus)

@@ -1,5 +1,0 @@
-mode: MULTIRUN
-job_id: run_0
-overrides:
-- case.file=Case_jack+jill.toml
-- longevity.values.0=80

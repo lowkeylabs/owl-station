@@ -36,7 +36,7 @@ def cmd_cases(selector):
     # ------------------------------------------------------------
     # Assign integer IDs
     # ------------------------------------------------------------
-    indexed_files = list(enumerate(toml_files, start=1))
+    indexed_files = list(enumerate(toml_files))
 
     # ------------------------------------------------------------
     # Helper: resolve selector → Path
