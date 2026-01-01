@@ -4,6 +4,14 @@ from pathlib import Path
 import click
 from loguru import logger
 
+from owlroost.cli.utils import (
+    find_case_files,
+    index_case_files,
+    resolve_case_selector,
+    print_case_list,
+)
+
+
 # ======================================================================
 # Main command
 # ======================================================================
@@ -27,46 +35,22 @@ def cmd_cases(selector):
     directory = Path(".")
     logger.debug(f"Scanning directory: {directory}")
 
-    toml_files = sorted(directory.glob("*.toml"))
+    files = find_case_files(directory)
 
-    if not toml_files:
+    if not files:
         click.echo("No .toml case files found.")
         return
 
-    # ------------------------------------------------------------
-    # Assign integer IDs
-    # ------------------------------------------------------------
-    indexed_files = list(enumerate(toml_files))
-
-    # ------------------------------------------------------------
-    # Helper: resolve selector → Path
-    # ------------------------------------------------------------
-    def resolve_selector(sel: str) -> Path | None:
-        # ---- selector is an integer ID ----
-        if sel.isdigit():
-            idx = int(sel)
-            return next(
-                (f for i, f in indexed_files if i == idx),
-                None,
-            )
-
-        # ---- selector is a filename ----
-        path = Path(sel)
-        if not path.suffix:
-            path = path.with_suffix(".toml")
-
-        return next(
-            (f for _, f in indexed_files if f.name == path.name),
-            None,
-        )
+    indexed_files = index_case_files(files)
 
     # ------------------------------------------------------------
     # Comparison mode (2+ selectors)
     # ------------------------------------------------------------
     if len(selector) >= 2:
-        paths = []
+        paths: list[Path] = []
+
         for sel in selector:
-            match = resolve_selector(sel)
+            match = resolve_case_selector(sel, indexed_files)
             if not match:
                 click.echo(f"No case matching '{sel}'")
                 return
@@ -79,73 +63,18 @@ def cmd_cases(selector):
     # Single selector → display case
     # ------------------------------------------------------------
     if len(selector) == 1:
-        sel = selector[0]
-        match = resolve_selector(sel)
-
+        match = resolve_case_selector(selector[0], indexed_files)
         if not match:
-            click.echo(f"No case matching '{sel}'")
+            click.echo(f"No case matching '{selector[0]}'")
             return
 
         _display_case(match)
         return
 
     # ------------------------------------------------------------
-    # No selector → list all cases
+    # No selector → list all cases (shared)
     # ------------------------------------------------------------
-    click.echo(
-        f"{'ID':>3} "
-        f"{'FILE':<30} "
-        f"{'CASE NAME':<20} "
-        f"{'HFP FILE':<30} "
-        f"{'OPTIMIZATION':<30}"
-    )
-    click.echo("-" * 125)
-
-    for idx, filename in indexed_files:
-        try:
-            with filename.open("rb") as f:
-                data = tomllib.load(f)
-        except Exception as e:
-            logger.warning(f"Failed to load {filename}: {e}")
-            continue
-
-        case_name = data.get("Plan Name", "")
-        if len(case_name) > 20:
-            case_name = case_name[:16] + "..."
-
-        hfp_name = data.get("Household Financial Profile", {}).get("HFP file name", "")
-
-        opt_display = _format_optimization(data)
-
-        click.echo(
-            f"{idx:>3} "
-            f"{filename.stem:<30} "
-            f"{case_name:<20} "
-            f"{hfp_name:<30} "
-            f"{opt_display:<30}"
-        )
-
-
-# ======================================================================
-# Helpers
-# ======================================================================
-
-
-def _format_optimization(data: dict) -> str:
-    opt_block = data.get("Optimization Parameters", {})
-    solver_opts = data.get("Solver Options", {})
-
-    objective = opt_block.get("Objective", "")
-
-    if objective == "maxSpending":
-        target = solver_opts.get("bequest")
-        return f"maxSpending (bequest={target})" if target is not None else "maxSpending"
-
-    if objective == "maxBequest":
-        target = solver_opts.get("netSpending")
-        return f"maxBequest (netSpending={target})" if target is not None else "maxBequest"
-
-    return objective or ""
+    print_case_list(directory)
 
 
 # ======================================================================
@@ -279,7 +208,7 @@ def _display_case(path: Path):
 
 
 # ======================================================================
-# Comparison display
+# Comparison display (UNCHANGED)
 # ======================================================================
 
 

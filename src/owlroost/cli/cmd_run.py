@@ -7,6 +7,18 @@ from pathlib import Path
 import click
 from loguru import logger
 
+from owlroost.cli.utils import (
+    format_override_help,
+    format_click_options,
+    find_case_files,
+    index_case_files,
+    resolve_case_selector,
+    print_case_list,
+)
+
+CONF_DIR = Path(__file__).parents[1] / "conf"
+helper_groups = ["solver", "optimization", "longevity"]
+
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
@@ -38,51 +50,6 @@ def normalize_hydra_overrides(overrides: list[str]) -> list[str]:
         normalized.append(f"{key}={val}")
 
     return normalized
-
-
-def find_case_files(directory: Path) -> list[Path]:
-    """Return sorted list of .toml case files."""
-    return sorted(directory.glob("*.toml"))
-
-
-def resolve_case_arg(arg: str | None, cases: list[Path]) -> Path | None:
-    """
-    Resolve a case argument which may be:
-      - None          → no case specified
-      - filename      → exact match
-      - integer index → positional case selection
-    """
-    if arg is None:
-        return None
-
-    # Numeric ID
-    if arg.isdigit():
-        idx = int(arg)
-        try:
-            return cases[idx]
-        except IndexError:
-            raise click.BadParameter(f"No case with id {idx}") from None
-
-    # Filename
-    path = Path(arg)
-    if path.suffix == "":
-        path = path.with_suffix(".toml")
-
-    if not path.exists():
-        raise click.BadParameter(f"Case file '{path}' does not exist") from None
-
-    return path.resolve()
-
-
-def list_cases(cases: list[Path]) -> None:
-    """Print indexed case list."""
-    if not cases:
-        click.echo("No .toml case files found.")
-        return
-
-    click.echo("Available cases:")
-    for i, case in enumerate(cases):
-        click.echo(f"  [{i}] {case.name}")
 
 
 def build_hydra_command(
@@ -123,6 +90,22 @@ def build_hydra_command(
 # ---------------------------------------------------------------------
 
 
+def build_run_help(cmd) -> str:
+    conf_dir = Path(__file__).parents[1] / "conf"
+
+    parts = [
+        "Usage: roost run [CASE] [OVERRIDES...]\n",
+        "Run OWL via Hydra.\n",
+        "Examples:",
+        "  roost run",
+        "  roost run base.toml solver.netSpending=65.7\n",
+        format_override_help(conf_dir, groups=["solver", "optimization", "longevity"]),
+        format_click_options(cmd),
+    ]
+
+    return "\n".join(parts)
+
+
 @click.command(
     name="run",
     context_settings=dict(
@@ -134,26 +117,28 @@ def build_hydra_command(
 @click.pass_context
 def cmd_run(ctx: click.Context, case: str | None):
     """
-    Run OWL via Hydra.
-
-    Usage:
-      roost run              → list available cases
-      roost run <case.toml>  → run a specific case
-      roost run <id>         → run case by index
-
-    Any additional arguments are forwarded directly to Hydra.
+    Run an OWL case via Hydra.
     """
 
     cwd = Path.cwd()
-    cases = find_case_files(cwd)
 
-    # No argument → list cases
+    files = find_case_files(cwd)
+
+    # ------------------------------------------------------------
+    # No argument → show same case list as `roost cases`
+    # ------------------------------------------------------------
     if case is None:
-        list_cases(cases)
+        print_case_list(cwd)
         return
 
-    # Resolve case argument
-    case_file = resolve_case_arg(case, cases)
+    if not files:
+        raise click.BadParameter("No .toml case files found.")
+
+    indexed_files = index_case_files(files)
+
+    case_file = resolve_case_selector(case, indexed_files)
+    if not case_file:
+        raise click.BadParameter(f"No case matching '{case}'")
 
     # Remaining args → Hydra overrides
     hydra_overrides = ctx.args
@@ -165,11 +150,16 @@ def cmd_run(ctx: click.Context, case: str | None):
     # Build subprocess command
     cmd = build_hydra_command(case_file, hydra_overrides)
 
-    logger.info("Executing Hydra:")
-    logger.info("  {}", " ".join(cmd))
+    logger.debug("Executing Hydra:")
+    logger.debug("  {}", " ".join(cmd))
 
     # Execute
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
-        raise click.ClickException(f"Hydra run failed (exit {e.returncode})") from None
+        raise click.ClickException(
+            f"Hydra run failed (exit {e.returncode})"
+        ) from None
+
+
+cmd_run.get_help = lambda ctx: build_run_help(cmd_run)
