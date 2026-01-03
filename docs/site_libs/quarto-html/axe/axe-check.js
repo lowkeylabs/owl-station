@@ -128,7 +128,7 @@ class QuartoAxeChecker {
        // all tabster elements
        "[data-tabster-dummy]"
       ],
-      preload: { assets: ['cssom'], timeout: 50000 }    
+      preload: { assets: ['cssom'], timeout: 50000 }
     });
     const reporter = this.options === true ? new QuartoAxeConsoleReporter(result) : new reporters[this.options.output](result, this.options);
     reporter.report();

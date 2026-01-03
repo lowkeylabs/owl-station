@@ -131,10 +131,10 @@ Results are fully reproducible from the effective TOML and HFP alone.
 
 In short:
 
-> **Decision options define the questions;  
-> choice templates define the policies;  
-> cases define the assumptions and a snapshot of uncertainty;  
-> runs define the policy instance applied to a case;  
+> **Decision options define the questions;
+> choice templates define the policies;
+> cases define the assumptions and a snapshot of uncertainty;
+> runs define the policy instance applied to a case;
 > results define the evidence of a run.**
 
 ## Design Philosophy
@@ -283,4 +283,3 @@ In short:
 * **ROOST** compares decision policies across cases to understand trade-offs, uncertainty, and flexibility
 
 ROOST builds on OWL’s optimization engine by providing the conceptual structure and tooling needed to explore retirement decisions as they are actually faced: sequentially, under uncertainty, and with multiple plausible policies under consideration.
-
