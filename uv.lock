@@ -1441,7 +1441,7 @@ requires-dist = [
     { name = "hydra-joblib-launcher", specifier = ">=1.2.0" },
     { name = "jupyter", specifier = ">=1.1.1" },
     { name = "matplotlib", specifier = ">=3.10.8" },
-    { name = "owlplanner", git = "https://github.com/mdlacasse/Owl.git?rev=051d7dd" },
+    { name = "owlplanner", git = "https://github.com/mdlacasse/Owl.git?rev=1a71f1e" },
     { name = "plotly", specifier = ">=6.5.0" },
     { name = "pre-commit", marker = "extra == 'dev'", specifier = ">=3.7.0" },
     { name = "pytest", marker = "extra == 'dev'", specifier = ">=9.0.2" },
@@ -1452,8 +1452,8 @@ provides-extras = ["dev"]
 
 [[package]]
 name = "owlplanner"
-version = "2025.12.29"
-source = { git = "https://github.com/mdlacasse/Owl.git?rev=051d7dd#051d7dd224dc8d354a3906b14ff59b692e86df55" }
+version = "2026.1.3"
+source = { git = "https://github.com/mdlacasse/Owl.git?rev=1a71f1e#1a71f1e8216fdf14e8bf67b67ec57001fb7b066c" }
 dependencies = [
     { name = "click" },
     { name = "highspy" },
