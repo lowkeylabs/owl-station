@@ -14,3 +14,5 @@ format:
     theme: cosmo
     css: styles.css
     toc: true
+    toc-depth: 4
+    toc-expand: false

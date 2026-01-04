@@ -7,7 +7,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=yes">
 
 
-<title>ROOST</title>
+<title>OWL-ROOST – ROOST</title>
 <style>
 code{white-space: pre-wrap;}
 span.smallcaps{font-variant: small-caps;}
@@ -106,44 +106,59 @@ ul.task-list li input[type="checkbox"] {
 <!-- sidebar -->
 <!-- margin-sidebar -->
     <div id="quarto-margin-sidebar" class="sidebar margin-sidebar">
-        <nav id="TOC" role="doc-toc" class="toc-active">
+        <nav id="TOC" role="doc-toc" class="toc-active" data-toc-expanded="-1">
     <h2 id="toc-title">On this page</h2>
 
   <ul>
-  <li><a href="#owl-roost" id="toc-owl-roost" class="nav-link active" data-scroll-target="#owl-roost">OWL-ROOST</a>
-  <ul class="collapse">
-  <li><a href="#core-concepts" id="toc-core-concepts" class="nav-link" data-scroll-target="#core-concepts">Core Concepts</a>
-  <ul class="collapse">
-  <li><a href="#decision-options" id="toc-decision-options" class="nav-link" data-scroll-target="#decision-options"><strong>Decision Options</strong></a></li>
-  <li><a href="#choice-templates" id="toc-choice-templates" class="nav-link" data-scroll-target="#choice-templates"><strong>Choice Templates</strong></a></li>
-  <li><a href="#cases" id="toc-cases" class="nav-link" data-scroll-target="#cases"><strong>Cases</strong></a></li>
-  <li><a href="#uncertainty" id="toc-uncertainty" class="nav-link" data-scroll-target="#uncertainty"><strong>Uncertainty</strong></a></li>
-  <li><a href="#runs" id="toc-runs" class="nav-link" data-scroll-target="#runs"><strong>Runs</strong></a></li>
-  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results"><strong>Results</strong></a></li>
+  <li><a href="#core-concepts" id="toc-core-concepts" class="nav-link active" data-scroll-target="#core-concepts"><strong>Core Concepts</strong></a>
+  <ul>
+  <li><a href="#decision-options" id="toc-decision-options" class="nav-link" data-scroll-target="#decision-options">Decision Options</a></li>
+  <li><a href="#choice-templates" id="toc-choice-templates" class="nav-link" data-scroll-target="#choice-templates">Choice Templates</a></li>
+  <li><a href="#cases" id="toc-cases" class="nav-link" data-scroll-target="#cases">Cases</a></li>
+  <li><a href="#uncertainty" id="toc-uncertainty" class="nav-link" data-scroll-target="#uncertainty">Uncertainty</a></li>
+  <li><a href="#runs" id="toc-runs" class="nav-link" data-scroll-target="#runs">Runs</a></li>
+  <li><a href="#trials" id="toc-trials" class="nav-link" data-scroll-target="#trials">Trials</a></li>
+  <li><a href="#runs-vs-trials" id="toc-runs-vs-trials" class="nav-link" data-scroll-target="#runs-vs-trials">Runs vs Trials</a></li>
+  <li><a href="#results" id="toc-results" class="nav-link" data-scroll-target="#results">Results</a></li>
   </ul></li>
   <li><a href="#how-the-pieces-fit-together" id="toc-how-the-pieces-fit-together" class="nav-link" data-scroll-target="#how-the-pieces-fit-together">How the Pieces Fit Together</a></li>
-  <li><a href="#design-philosophy" id="toc-design-philosophy" class="nav-link" data-scroll-target="#design-philosophy">Design Philosophy</a></li>
-  <li><a href="#relation-to-owl-planner" id="toc-relation-to-owl-planner" class="nav-link" data-scroll-target="#relation-to-owl-planner">Relation to OWL-Planner</a>
-  <ul class="collapse">
+  <li><a href="#design-philosophy" id="toc-design-philosophy" class="nav-link" data-scroll-target="#design-philosophy"><strong>Design Philosophy</strong></a></li>
+  <li><a href="#relation-to-owl-planner" id="toc-relation-to-owl-planner" class="nav-link" data-scroll-target="#relation-to-owl-planner"><strong>Relation to OWL-Planner</strong></a>
+  <ul>
   <li><a href="#owl-planner" id="toc-owl-planner" class="nav-link" data-scroll-target="#owl-planner">OWL-Planner</a></li>
   <li><a href="#how-roost-extends-owl" id="toc-how-roost-extends-owl" class="nav-link" data-scroll-target="#how-roost-extends-owl">How ROOST Extends OWL</a></li>
-  <li><a href="#key-extensions-introduced-by-roost" id="toc-key-extensions-introduced-by-roost" class="nav-link" data-scroll-target="#key-extensions-introduced-by-roost">Key Extensions Introduced by ROOST</a></li>
-  <li><a href="#when-to-use-owl-vs-roost" id="toc-when-to-use-owl-vs-roost" class="nav-link" data-scroll-target="#when-to-use-owl-vs-roost">When to Use OWL vs ROOST</a></li>
-  <li><a href="#in-one-sentence" id="toc-in-one-sentence" class="nav-link" data-scroll-target="#in-one-sentence">In One Sentence</a></li>
-  <li><a href="#summary" id="toc-summary" class="nav-link" data-scroll-target="#summary">Summary</a></li>
+  <li><a href="#when-to-use-owl-vs-roost" id="toc-when-to-use-owl-vs-roost" class="nav-link" data-scroll-target="#when-to-use-owl-vs-roost">When to Use OWL vs ROOST</a>
+  <ul class="collapse">
+  <li><a href="#use-owl-planner-when-you-want-to" id="toc-use-owl-planner-when-you-want-to" class="nav-link" data-scroll-target="#use-owl-planner-when-you-want-to">Use <strong>OWL-Planner</strong> when you want to:</a></li>
+  <li><a href="#use-roost-when-you-want-to" id="toc-use-roost-when-you-want-to" class="nav-link" data-scroll-target="#use-roost-when-you-want-to">Use <strong>ROOST</strong> when you want to:</a></li>
   </ul></li>
+  <li><a href="#in-one-sentence" id="toc-in-one-sentence" class="nav-link" data-scroll-target="#in-one-sentence">In One Sentence</a></li>
   </ul></li>
   </ul>
 </nav>
     </div>
 <!-- main -->
-<main class="content" id="quarto-document-content"><header id="title-block-header" class="quarto-title-block"></header>
+<main class="content" id="quarto-document-content">
+
+<header id="title-block-header" class="quarto-title-block default">
+<div class="quarto-title">
+<h1 class="title">OWL-ROOST</h1>
+</div>
+
+
+
+<div class="quarto-title-meta">
 
 
 
 
-<section id="owl-roost" class="level1">
-<h1>OWL-ROOST</h1>
+  </div>
+
+
+
+</header>
+
+
 <p><strong>Retirement Options and Outcomes Studies Tool</strong></p>
 <p><strong>ROOST</strong> (Retirement Options and Outcomes Studies Tool) evaluates <strong>retirement decision policies</strong>—not just static plans—by comparing how <strong>agent-controlled actions</strong> perform under <strong>uncertainty</strong> when those decisions are revisited annually.</p>
 <p>ROOST is designed to answer questions like:</p>
@@ -152,18 +167,19 @@ ul.task-list li input[type="checkbox"] {
 </blockquote>
 <p>It does this by organizing retirement analysis around a small number of clear, orthogonal concepts.</p>
 <section id="core-concepts" class="level2">
-<h2 class="anchored" data-anchor-id="core-concepts">Core Concepts</h2>
-<p>ROOST introduces five key concepts in extending the work of OWL.</p>
+<h2 class="anchored" data-anchor-id="core-concepts"><strong>Core Concepts</strong></h2>
+<p>ROOST introduces six key concepts in extending the work of OWL.</p>
 <ul>
 <li><strong>Decision options</strong> define <em>what question is being asked</em></li>
 <li><strong>Choice templates</strong> define <em>policy alternatives</em></li>
-<li><strong>Cases</strong> define <em>assumptions and a snapshot of uncertainty</em></li>
-<li><strong>Runs</strong> define <em>a policy instance applied to a case</em></li>
+<li><strong>Cases</strong> define <em>initial conditions and constraints</em></li>
+<li><strong>Runs</strong> define <em>a fixed decision policy applied to a case</em></li>
+<li><strong>Trials</strong> define <em>individual realizations of uncertainty</em></li>
 <li><strong>Results</strong> provide <em>evidence for comparison and insight</em></li>
 </ul>
 <p>Cases and runs are shared between OWL and ROOST. They are represented by exactly the same files and outputs.</p>
 <section id="decision-options" class="level3">
-<h3 class="anchored" data-anchor-id="decision-options"><strong>Decision Options</strong></h3>
+<h3 class="anchored" data-anchor-id="decision-options">Decision Options</h3>
 <p>A <strong>decision option</strong> represents a focused retirement question—something the agent can choose and re-choose over time.</p>
 <p>Examples:</p>
 <ul>
@@ -176,18 +192,19 @@ ul.task-list li input[type="checkbox"] {
 <p>Each decision option defines a <strong>policy dimension</strong> to be explored, not a single action.</p>
 </section>
 <section id="choice-templates" class="level3">
-<h3 class="anchored" data-anchor-id="choice-templates"><strong>Choice Templates</strong></h3>
-<p>A <strong>choice template</strong> is a concrete <strong>decision policy</strong> within a decision option. It defines a rule for choosing an action each year, conditional on the current state.</p>
+<h3 class="anchored" data-anchor-id="choice-templates">Choice Templates</h3>
+<p>A <strong>choice template</strong> is a concrete <strong>decision policy</strong> within a decision option.<br>
+It defines a rule for choosing an action each year, conditional on the current state.</p>
 <p>Examples:</p>
 <ul>
-<li><p><em>Roth options</em>:</p>
+<li><em>Roth options</em>:
 <ul>
 <li>No Roth conversions</li>
 <li>Fixed annual conversion amounts</li>
 <li>Fill to a target marginal tax bracket</li>
 <li>Let OWL optimize Roth conversions</li>
 </ul></li>
-<li><p><em>Spending options</em>:</p>
+<li><em>Spending options</em>:
 <ul>
 <li>Fixed real spending</li>
 <li>Guardrail spending</li>
@@ -198,8 +215,9 @@ ul.task-list li input[type="checkbox"] {
 <p>Choice templates are <strong>reusable</strong>, <strong>comparable</strong>, and represent different ways to answer the same underlying decision question.</p>
 </section>
 <section id="cases" class="level3">
-<h3 class="anchored" data-anchor-id="cases"><strong>Cases</strong></h3>
-<p>A <strong>case</strong> defines the <strong>initial state and constraints</strong> of a retirement scenario. It is specified by:</p>
+<h3 class="anchored" data-anchor-id="cases">Cases</h3>
+<p>A <strong>case</strong> defines the <strong>initial state and constraints</strong> of a retirement scenario.</p>
+<p>A case is specified by:</p>
 <ul>
 <li>A TOML plan file</li>
 <li>A referenced Household Financial Profile (HFP) file</li>
@@ -215,40 +233,70 @@ ul.task-list li input[type="checkbox"] {
 <p>Cases are <strong>sources of truth</strong> and are independent of computed outcomes.</p>
 </section>
 <section id="uncertainty" class="level3">
-<h3 class="anchored" data-anchor-id="uncertainty"><strong>Uncertainty</strong></h3>
+<h3 class="anchored" data-anchor-id="uncertainty">Uncertainty</h3>
 <p><strong>Uncertainty</strong> represents aspects of the world that affect outcomes but are <strong>not controlled by the agent</strong>.</p>
-<p>In ROOST today, uncertainty is represented <strong>implicitly and scenario-based</strong>:</p>
+<p>In ROOST, uncertainty is treated as <strong>exogenous</strong>:</p>
 <ul>
-<li>Longevity and return paths are specified <em>ex ante</em> in the case</li>
-<li>Each case corresponds to a particular realization or assumption set</li>
-<li>Decision policies are evaluated <em>conditional on those assumptions</em></li>
+<li>Longevity outcomes</li>
+<li>Market return paths</li>
+<li>Inflation paths (future implementation)</li>
+<li>Policy and tax environments (future implementation)</li>
 </ul>
-<p>ROOST compares <strong>decision policies under a given uncertainty model</strong>, rather than attempting to predict which uncertainty will occur.</p>
+<p>Decision policies are evaluated <em>conditional on uncertainty</em>, allowing ROOST to explore sensitivity and robustness without conflating choices with outcomes.</p>
 <p>This separation allows ROOST to answer questions such as:</p>
 <ul>
-<li><em>How sensitive is a decision policy to different longevity assumptions?</em></li>
-<li><em>Which policies remain robust across pessimistic and optimistic return scenarios?</em></li>
+<li><em>How sensitive is a decision policy to different longevity outcomes?</em></li>
+<li><em>Which policies remain robust across pessimistic and optimistic return environments?</em></li>
 </ul>
-<p>Future extensions may introduce richer stochastic or multi-path representations of uncertainty, but the conceptual separation remains the same: <strong>decisions are chosen; uncertainty is not.</strong></p>
+<p>The key conceptual distinction is simple:</p>
+<blockquote class="blockquote">
+<p><strong>Decisions are chosen by the agent; uncertainty is not.</strong></p>
+</blockquote>
 </section>
 <section id="runs" class="level3">
-<h3 class="anchored" data-anchor-id="runs"><strong>Runs</strong></h3>
-<p>A <strong>run</strong> is the application of a single <strong>choice template</strong> to a single <strong>case</strong>, producing one realization of outcomes under the case’s uncertainty assumptions.</p>
+<h3 class="anchored" data-anchor-id="runs">Runs</h3>
+<p>A <strong>run</strong> represents a fixed <strong>decision policy instance</strong> applied to a single <strong>case</strong>.</p>
 <p>Conceptually:</p>
 <pre><code>Case × Choice Template → Run</code></pre>
+<p>A run answers the question:</p>
+<blockquote class="blockquote">
+<p><em>“What decision policy are we studying?”</em></p>
+</blockquote>
+<p>All agent-controlled decisions are fixed at the run level.</p>
+</section>
+<section id="trials" class="level3">
+<h3 class="anchored" data-anchor-id="trials">Trials</h3>
+<p>A <strong>trial</strong> represents a single <strong>realization of uncertainty</strong> for a given run.</p>
+<p>Conceptually:</p>
+<pre><code>Run × Uncertainty Realization → Trial</code></pre>
+<p>Across trials:</p>
+<ul>
+<li>The <strong>decision policy is fixed</strong></li>
+<li>Only <strong>random or uncertain elements differ</strong></li>
+</ul>
+<p>Trials allow ROOST to distinguish <strong>decision quality</strong> from <strong>luck</strong>, and to evaluate how the same policy performs across many plausible futures.</p>
+</section>
+<section id="runs-vs-trials" class="level3">
+<h3 class="anchored" data-anchor-id="runs-vs-trials">Runs vs Trials</h3>
+<p>Runs and trials serve different but complementary roles:</p>
+<ul>
+<li>A <strong>run</strong> defines <em>intent</em> — the policy being evaluated</li>
+<li>A <strong>trial</strong> defines <em>experience</em> — what happened under a particular realization of uncertainty</li>
+</ul>
+<p>Multiple trials may be generated for a single run to assess robustness, tail risk, and sensitivity to uncertainty.</p>
 </section>
 <section id="results" class="level3">
-<h3 class="anchored" data-anchor-id="results"><strong>Results</strong></h3>
-<p><strong>Results</strong> are the artifacts produced by OWL for a run and form the basis for evaluation and comparison.</p>
-<p>Examples:</p>
+<h3 class="anchored" data-anchor-id="results">Results</h3>
+<p><strong>Results</strong> are the artifacts produced by OWL and ROOST for runs and trials and form the basis for evaluation and comparison.</p>
+<p>Examples include:</p>
 <ul>
-<li>Optimal objective values (max spending, bequest, etc.)</li>
+<li>Objective values (e.g., maximum sustainable spending, bequest)</li>
 <li>Effective (post-override) TOML and HFP artifacts</li>
 <li>Summary and metrics JSON files</li>
 <li>Time-series projections and distributions</li>
 <li>Comparative tables and visualizations</li>
 </ul>
-<p>Results are fully reproducible from the effective TOML and HFP alone.</p>
+<p>Results are fully reproducible from the effective TOML and HFP combined with the recorded uncertainty realization.</p>
 </section>
 </section>
 <section id="how-the-pieces-fit-together" class="level2">
@@ -256,27 +304,29 @@ ul.task-list li input[type="checkbox"] {
 <ul>
 <li><strong>Decision options</strong> define <em>what question is being asked</em></li>
 <li><strong>Choice templates</strong> define <em>policy alternatives</em></li>
-<li><strong>Cases</strong> define <em>assumptions and a snapshot of uncertainty</em></li>
-<li><strong>Runs</strong> define <em>a policy instance applied to a case</em></li>
+<li><strong>Cases</strong> define <em>initial conditions and constraints</em></li>
+<li><strong>Runs</strong> define <em>a fixed policy applied to a case</em></li>
+<li><strong>Trials</strong> define <em>realizations of uncertainty</em></li>
 <li><strong>Results</strong> provide <em>evidence for comparison and insight</em></li>
 </ul>
 <p>In short:</p>
 <blockquote class="blockquote">
 <p><strong>Decision options define the questions;<br>
 choice templates define the policies;<br>
-cases define the assumptions and a snapshot of uncertainty;<br>
-runs define the policy instance applied to a case;<br>
-results define the evidence of a run.</strong></p>
+cases define the assumptions;<br>
+runs define the fixed policy instances;<br>
+trials define realized uncertainty;<br>
+results define the evidence.</strong></p>
 </blockquote>
 </section>
 <section id="design-philosophy" class="level2">
-<h2 class="anchored" data-anchor-id="design-philosophy">Design Philosophy</h2>
+<h2 class="anchored" data-anchor-id="design-philosophy"><strong>Design Philosophy</strong></h2>
 <p>ROOST treats retirement planning as a <strong>sequential decision problem</strong>:</p>
 <ul>
 <li>Decisions are agent-controlled</li>
 <li>They are revisited annually</li>
 <li>Outcomes unfold under uncertainty</li>
-<li>Policies are evaluated for robustness, not just optimality</li>
+<li>Policies are evaluated across many plausible futures for robustness, not just optimality</li>
 </ul>
 <p>Rather than asking <em>“What is the single optimal plan?”</em>, ROOST helps answer:</p>
 <blockquote class="blockquote">
@@ -284,11 +334,11 @@ results define the evidence of a run.</strong></p>
 </blockquote>
 </section>
 <section id="relation-to-owl-planner" class="level2">
-<h2 class="anchored" data-anchor-id="relation-to-owl-planner">Relation to OWL-Planner</h2>
+<h2 class="anchored" data-anchor-id="relation-to-owl-planner"><strong>Relation to OWL-Planner</strong></h2>
 <section id="owl-planner" class="level3">
 <h3 class="anchored" data-anchor-id="owl-planner">OWL-Planner</h3>
 <p><strong>OWL-Planner</strong> (Optimal Wealth Laboratory) is a retirement planning and optimization framework that computes optimal retirement strategies over a full planning horizon, subject to detailed tax rules, account constraints, longevity assumptions, and return scenarios.</p>
-<p>Given a fully specified input case—defined by a TOML plan file and a referenced Household Financial Profile (HFP)—OWL solves for optimal actions (such as spending levels, asset allocation, and Roth conversions) under the assumed conditions. OWL’s strength lies in its rigorous optimization engine and its ability to reason consistently across time, taxes, and multiple interacting constraints.</p>
+<p>Given a fully specified input case—defined by a TOML plan file and a referenced Household Financial Profile (HFP)—OWL solves for optimal actions (such as spending levels, asset allocation, and Roth conversions) under the assumed conditions.</p>
 <p>OWL answers questions of the form:</p>
 <blockquote class="blockquote">
 <p><em>“Given these assumptions and constraints, what strategy is optimal over the planning horizon?”</em></p>
@@ -296,116 +346,44 @@ results define the evidence of a run.</strong></p>
 </section>
 <section id="how-roost-extends-owl" class="level3">
 <h3 class="anchored" data-anchor-id="how-roost-extends-owl">How ROOST Extends OWL</h3>
-<p><strong>ROOST does not replace OWL.</strong> Instead, ROOST <strong>extends OWL by systematizing how retirement decisions are explored, compared, and interpreted under uncertainty.</strong></p>
+<p><strong>ROOST does not replace OWL.</strong> Instead, ROOST extends OWL by systematizing how retirement decisions are explored, compared, and interpreted under uncertainty.</p>
 <p>In particular, ROOST introduces a structured framework for:</p>
 <ol type="1">
-<li><strong>Explicitly separating agent-controlled decisions from external uncertainty</strong></li>
-<li><strong>Organizing retirement analysis around decision policies rather than single optimized plans</strong></li>
-<li><strong>Comparing alternative decision policies in a reproducible, scalable way</strong></li>
+<li>Separating agent-controlled decisions from uncertainty</li>
+<li>Organizing analysis around decision policies rather than single optimized plans</li>
+<li>Evaluating robustness across many uncertainty realizations</li>
+<li>Systematically comparing alternative policies</li>
 </ol>
-<p>While OWL focuses on computing optimal outcomes for a single, fully specified case, ROOST focuses on exploring <em>decision flexibility and robustness</em> across multiple choices and assumptions.</p>
-</section>
-<section id="key-extensions-introduced-by-roost" class="level3">
-<h3 class="anchored" data-anchor-id="key-extensions-introduced-by-roost">Key Extensions Introduced by ROOST</h3>
-<p><strong>1. Decision-centric framing</strong></p>
-<p>ROOST treats retirement planning as a sequence of <strong>agent-controlled decisions</strong>—such as spending, Roth conversions, or claiming Social Security—that are revisited annually. These decisions are represented as <strong>decision options</strong>, each supported by multiple <strong>choice templates</strong> (policy rules).</p>
-<p>This framing makes explicit that:</p>
-<ul>
-<li>Decisions are chosen by the agent</li>
-<li>They can be discrete or continuous</li>
-<li>They are evaluated as <em>policies</em>, not one-time actions</li>
-</ul>
-<p><strong>2. Explicit treatment of uncertainty</strong></p>
-<p>In ROOST, uncertainty is treated as <strong>exogenous</strong>:</p>
-<ul>
-<li>Longevity assumptions</li>
-<li>Return and inflation paths</li>
-<li>Tax and policy environments</li>
-</ul>
-<p>These elements are encoded in <strong>cases</strong> and are not directly controlled by the agent. Decision policies are evaluated <em>conditional on this uncertainty snapshot</em>, allowing ROOST to explore sensitivity and robustness without conflating choices with outcomes.</p>
-<p><strong>3. Systematic comparison of alternatives</strong></p>
-<p>ROOST introduces structure around OWL runs by:</p>
-<ul>
-<li>Applying multiple choice templates to one or more cases</li>
-<li>Executing these runs in a consistent, reproducible manner</li>
-<li>Capturing comparable results and artifacts for analysis</li>
-</ul>
-<p>This enables ROOST to answer questions such as:</p>
-<ul>
-<li><em>Which decision policies perform best under a given set of assumptions?</em></li>
-<li><em>How sensitive are outcomes to different first-year decisions?</em></li>
-<li><em>Where does meaningful flexibility exist across plausible futures?</em></li>
-</ul>
-<p>Below is a <strong>respectful, balanced “When to Use OWL vs ROOST” section</strong> you can append immediately after <strong>“How ROOST Extends OWL”</strong> in the new <em>Relation to OWL-Planner</em> section. It is careful to position ROOST as <em>complementary</em>, not superior, and to emphasize OWL’s strengths clearly.</p>
 </section>
 <section id="when-to-use-owl-vs-roost" class="level3">
 <h3 class="anchored" data-anchor-id="when-to-use-owl-vs-roost">When to Use OWL vs ROOST</h3>
-<p><strong>OWL and ROOST are complementary tools</strong>, designed to answer different—but closely related—questions in retirement planning.</p>
+<p><strong>OWL and ROOST are complementary tools</strong>, designed to answer different—but closely related—questions.</p>
 <section id="use-owl-planner-when-you-want-to" class="level4">
 <h4 class="anchored" data-anchor-id="use-owl-planner-when-you-want-to">Use <strong>OWL-Planner</strong> when you want to:</h4>
 <ul>
 <li>Solve a <strong>single, well-defined retirement case</strong></li>
-<li>Compute an <strong>optimal strategy</strong> under a specific set of assumptions</li>
-<li>Explore the implications of detailed tax, account, and timing constraints</li>
-<li>Generate a <strong>best-response plan</strong> given fixed inputs</li>
+<li>Compute an <strong>optimal strategy</strong> under fixed assumptions</li>
+<li>Explore detailed tax, account, and timing constraints</li>
 </ul>
-<p>OWL is ideal when the question is:</p>
-<blockquote class="blockquote">
-<p><em>“Given these assumptions, what strategy is optimal over the planning horizon?”</em></p>
-</blockquote>
-<p>OWL’s optimization engine is the authoritative source for computing internally consistent, horizon-wide solutions.</p>
 </section>
 <section id="use-roost-when-you-want-to" class="level4">
 <h4 class="anchored" data-anchor-id="use-roost-when-you-want-to">Use <strong>ROOST</strong> when you want to:</h4>
 <ul>
-<li><strong>Compare multiple decision policies</strong>, not just a single optimized plan</li>
-<li>Explore <strong>trade-offs and robustness</strong> across alternative choices</li>
-<li>Understand <strong>decision flexibility</strong> under uncertainty</li>
-<li>Systematically evaluate <em>families of strategies</em> (e.g., Roth policies, spending rules, claiming strategies)</li>
-<li>Organize and automate <strong>reproducible experiments</strong> across cases and choices</li>
+<li>Compare <strong>decision policies</strong>, not just one plan</li>
+<li>Explore <strong>robustness and flexibility</strong> under uncertainty</li>
+<li>Systematically evaluate <em>families of strategies</em></li>
+<li>Understand sensitivity to first-year decisions</li>
 </ul>
-<p>ROOST is ideal when the question is:</p>
-<blockquote class="blockquote">
-<p><em>“Across plausible decision policies and assumptions, which choices perform well—and how sensitive are outcomes to what I decide today?”</em></p>
-</blockquote>
-<p>ROOST builds on OWL by running it repeatedly in a structured way, making comparisons explicit and interpretable.</p>
-</section>
-<section id="how-they-work-together" class="level4">
-<h4 class="anchored" data-anchor-id="how-they-work-together">How They Work Together</h4>
-<p>A typical workflow looks like:</p>
-<ol type="1">
-<li><strong>Define a case</strong> (TOML + HFP)</li>
-<li><strong>Use ROOST</strong> to explore and compare decision policies</li>
-<li><strong>Use OWL outputs</strong> to understand the mechanics and outcomes of each policy</li>
-<li><strong>Focus decision-making</strong> on policies that appear robust and flexible</li>
-<li>Optionally, <strong>refine or deepen analysis in OWL</strong> for a specific scenario</li>
-</ol>
-<p>In this sense:</p>
-<ul>
-<li><strong>OWL provides the optimization engine</strong></li>
-<li><strong>ROOST provides the experimental framework</strong></li>
-</ul>
-<p>ROOST does not replace OWL’s role; it amplifies its usefulness by placing individual OWL runs in a broader decision-analysis context.</p>
 </section>
 </section>
 <section id="in-one-sentence" class="level3">
 <h3 class="anchored" data-anchor-id="in-one-sentence">In One Sentence</h3>
 <blockquote class="blockquote">
-<p><strong>Use OWL to find optimal strategies for a given case; use ROOST to compare and understand decision policies across uncertainty.</strong></p>
+<p><strong>Use OWL to compute optimal strategies for a given case;<br>
+use ROOST to compare and understand decision policies across uncertainty.</strong></p>
 </blockquote>
-<p>This distinction keeps each tool focused on what it does best, while allowing them to work together naturally.</p>
-</section>
-<section id="summary" class="level3">
-<h3 class="anchored" data-anchor-id="summary">Summary</h3>
-<p>In short:</p>
-<ul>
-<li><strong>OWL</strong> computes optimal strategies for a given case</li>
-<li><strong>ROOST</strong> compares decision policies across cases to understand trade-offs, uncertainty, and flexibility</li>
-</ul>
-<p>ROOST builds on OWL’s optimization engine by providing the conceptual structure and tooling needed to explore retirement decisions as they are actually faced: sequentially, under uncertainty, and with multiple plausible policies under consideration.</p>
 
 
-</section>
 </section>
 </section>
 
