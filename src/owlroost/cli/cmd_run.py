@@ -29,6 +29,10 @@ def normalize_hydra_overrides(overrides: list[str]) -> list[str]:
     Normalize Hydra overrides:
       - Convert comma-separated values to list syntax
         unless already quoted or bracketed.
+
+    NOTE:
+    This helper is intentionally NOT applied by default, preserving
+    existing CLI behavior exactly.
     """
     normalized = []
 
@@ -77,16 +81,18 @@ def build_hydra_command(
         "--config-name=config",
     ]
 
+    # Inject selected case file
     if case_file:
         cmd.append(f"case.file={case_file}")
 
+    # Pass-through Hydra overrides verbatim
     cmd.extend(overrides)
 
     return cmd
 
 
 # ---------------------------------------------------------------------
-# CLI command
+# CLI help
 # ---------------------------------------------------------------------
 
 
@@ -99,11 +105,19 @@ def build_run_help(cmd) -> str:
         "Examples:",
         "  roost run",
         "  roost run base.toml solver.netSpending=65.7\n",
-        format_override_help(conf_dir, groups=["solver", "optimization", "longevity"]),
+        format_override_help(
+            conf_dir,
+            groups=["solver", "optimization", "longevity"],
+        ),
         format_click_options(cmd),
     ]
 
     return "\n".join(parts)
+
+
+# ---------------------------------------------------------------------
+# CLI command
+# ---------------------------------------------------------------------
 
 
 @click.command(
@@ -121,7 +135,6 @@ def cmd_run(ctx: click.Context, case: str | None):
     """
 
     cwd = Path.cwd()
-
     files = find_case_files(cwd)
 
     # ------------------------------------------------------------
@@ -140,11 +153,11 @@ def cmd_run(ctx: click.Context, case: str | None):
     if not case_file:
         raise click.BadParameter(f"No case matching '{case}'")
 
-    # Remaining args → Hydra overrides
+    # Remaining args → Hydra overrides (verbatim pass-through)
     hydra_overrides = ctx.args
     # hydra_overrides = normalize_hydra_overrides(ctx.args)
 
-    logger.debug("Resolved case: {}", case_file)
+    logger.debug("Resolved case file: {}", case_file)
     logger.debug("Hydra overrides: {}", hydra_overrides)
 
     # Build subprocess command

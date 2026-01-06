@@ -41,8 +41,7 @@ def apply_longevity_override(diconf: dict, cfg_longevity: dict):
       {"values": {0: 80}}
       {"values": 80}   # single-person case
     """
-    expectancy = diconf["Basic Info"]["Life expectancy"]
-
+    expectancy = diconf["basic_info"]["life_expectancy"]
     values = cfg_longevity.get("values")
 
     # -------------------------------
@@ -80,14 +79,12 @@ def apply_longevity_override(diconf: dict, cfg_longevity: dict):
 
 def apply_optimization_override(diconf: dict, value: dict):
     """
-    Apply optimization strategy overrides and enforce invariants.
+    Apply optimization strategy overrides.
 
-    value example:
-        {"Objective": "maxBequest"}
+    Example:
+        {"objective": "maxBequest"}
     """
-
-    opt = diconf.setdefault("Optimization Parameters", {})
-    # Apply overrides
+    opt = diconf.setdefault("optimization_parameters", {})
     for k, v in value.items():
         opt[k] = v
 
@@ -96,7 +93,7 @@ def apply_solver_override(diconf: dict, value: dict):
     """
     Apply solver option overrides.
 
-    value example:
+    Example:
         {
             "netSpending": 90,
             "bequest": 500,
@@ -104,12 +101,8 @@ def apply_solver_override(diconf: dict, value: dict):
             "maxRothConversion": 100
         }
     """
+    solver = diconf.setdefault("solver_options", {})
 
-    solver = diconf.setdefault("Solver Options", {})
-
-    # -------------------------------------------------
-    # Apply overrides verbatim
-    # -------------------------------------------------
     for k, v in value.items():
         solver[k] = v
         logger.debug("Applied solver override: {}={}", k, v)
@@ -122,6 +115,11 @@ OVERRIDE_HANDLERS = {
 }
 
 
+# ---------------------------------------------------------------------
+# TOML load / override helpers
+# ---------------------------------------------------------------------
+
+
 def load_original_toml(case_file: str) -> str:
     """
     Load and normalize the original TOML with no overrides applied.
@@ -130,23 +128,23 @@ def load_original_toml(case_file: str) -> str:
     with open(case_file, encoding="utf-8") as f:
         diconf = toml.load(f)
 
-    # Normalize via round-trip serialization
     return toml.dumps(diconf)
 
 
-def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, str]:
+def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, str, dict]:
     with open(case_file, encoding="utf-8") as f:
         diconf = toml.load(f)
 
     diconf = deepcopy(diconf)
 
     logger.debug(overrides)
+
     # -------------------------------------------------
     # Apply semantic overrides via handlers
     # -------------------------------------------------
     if overrides:
         for key, value in overrides.items():
-            # 🚫 Skip index-based overrides entirely
+            # Skip index-based overrides entirely
             if "." in key:
                 logger.debug("Skipping index override: {}", key)
                 continue
@@ -157,18 +155,19 @@ def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, s
                 raise RuntimeError(
                     f"Unknown override '{key}'. " f"Supported overrides: {list(OVERRIDE_HANDLERS)}"
                 ) from e
-            if handler is None:
-                logger.debug("Ignoring non-semantic override: {}", key)
+
             handler(diconf, value)
 
-    # -------------------------------------------------
-    # Serialize adjusted TOML
-    # -------------------------------------------------
     toml_text = toml.dumps(diconf)
     buf = StringIO(toml_text)
     buf.seek(0)
 
     return buf, toml_text, diconf
+
+
+# ---------------------------------------------------------------------
+# Optimization normalization
+# ---------------------------------------------------------------------
 
 
 def normalize_optimization(plan):
@@ -190,11 +189,11 @@ def normalize_optimization(plan):
         solver_opts.pop("netSpending", None)
 
     else:
-        raise RuntimeError(f"Unknown optimization Objective: {objective}")
+        raise RuntimeError(f"Unknown optimization objective: {objective}")
 
 
 # ---------------------------------------------------------------------
-# Core solver helper
+# Core solver helpers
 # ---------------------------------------------------------------------
 
 
@@ -207,7 +206,6 @@ def json_safe(obj):
     if isinstance(obj, np.generic):
         return obj.item()
     if hasattr(obj, "__dict__"):
-        # last-resort: stringify custom objects
         return str(obj)
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
@@ -216,7 +214,6 @@ def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: s
     """
     Solve the plan and write output.
     """
-
     normalize_optimization(plan)
 
     plan.solve(plan.objective, plan.solverOptions)
@@ -228,27 +225,25 @@ def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: s
 
     output_path = Path(output_file)
 
-    # Write METRICS JSON
-    metrics_path = output_path.with_suffix("").with_name(  # strip .xlsx
-        output_path.stem + "_metrics.json"
-    )
+    # METRICS
+    metrics_path = output_path.with_suffix("").with_name(output_path.stem + "_metrics.json")
     write_metrics_json(plan, metrics_path)
 
-    # Write SUMMARY JSON
-    summary_path = output_path.with_suffix("").with_name(  # strip .xlsx
-        output_path.stem + "_summary.json"
-    )
+    # SUMMARY
+    summary_path = output_path.with_suffix("").with_name(output_path.stem + "_summary.json")
     with open(summary_path, "w") as f:
         json.dump(plan.summaryDic(), f, indent=2, sort_keys=False, default=json_safe)
 
-    # Write ORIGINAL TOML
+    # ORIGINAL TOML
     original_toml_path = output_path.with_suffix("").with_name(output_path.stem + "_original.toml")
     with open(original_toml_path, "w", encoding="utf-8") as f:
         f.write(original_toml)
 
-    # Write EFFECTIVE TOML
-    toml_path = output_path.with_suffix("").with_name(output_path.stem + "_effective.toml")
-    with open(toml_path, "w", encoding="utf-8") as f:
+    # EFFECTIVE TOML
+    effective_toml_path = output_path.with_suffix("").with_name(
+        output_path.stem + "_effective.toml"
+    )
+    with open(effective_toml_path, "w", encoding="utf-8") as f:
         f.write(effective_toml)
 
 
@@ -270,19 +265,19 @@ def run_single_case(
     ensuring all derived horizons and constraints
     are built correctly by OWL.
     """
-
     logger.debug(overrides)
 
     # -------------------------------------------------
-    # Load and normalize ORIGINAL TOML (no overrides)
+    # Load original TOML
     # -------------------------------------------------
     original_toml = load_original_toml(case_file)
 
     SEMANTIC_OVERRIDE_KEYS = set(OVERRIDE_HANDLERS)
-    if overrides:
-        semantic_overrides = {k: v for k, v in overrides.items() if k in SEMANTIC_OVERRIDE_KEYS}
-    else:
-        semantic_overrides = None
+
+    semantic_overrides = (
+        {k: v for k, v in overrides.items() if k in SEMANTIC_OVERRIDE_KEYS} if overrides else None
+    )
+
     toml_buf, toml_text, toml_dict = load_and_override_toml(case_file, semantic_overrides)
 
     plan = owl.readConfig(
@@ -291,20 +286,16 @@ def run_single_case(
         readContributions=False,
     )
 
-    # Add code to find and read from contributions file
+    # -------------------------------------------------
+    # Read contributions / HFP file
+    # -------------------------------------------------
+    hfp_section = toml_dict.get("household_financial_profile", {})
+    hfp_file = hfp_section.get("HFP_file_name")
 
-    hfp_section = toml_dict.get("Household Financial Profile", {})
-    timeListsFileName = hfp_section.get("HFP file name", None)
-    timeListsFileName = str(Path(case_file).parent / timeListsFileName)
-    logger.debug(f"HFP file: {timeListsFileName}")
-    plan.readContributions(timeListsFileName)
-
-    logger.debug(f"{plan.tau_kn}")
-    # self.tau_kn = dr.genSeries(self.N_n).transpose()
-    # self.mylog.vprint(f"Generating rate series of {len(self.tau_kn[0])} years using {method} method.")
-
-    # Once rates are selected, (re)build cumulative inflation multipliers.
-    # self.gamma_n = _genGamma_n(self.tau_kn)
+    if hfp_file:
+        hfp_path = Path(case_file).parent / hfp_file
+        logger.debug("HFP file: {}", hfp_path)
+        plan.readContributions(str(hfp_path))
 
     solve_and_save(plan, output_file, toml_text, original_toml)
 

@@ -271,10 +271,10 @@ def load_case_metadata(path: Path) -> dict:
 
 
 def format_optimization_summary(data: dict) -> str:
-    opt_block = data.get("Optimization Parameters", {})
-    solver_opts = data.get("Solver Options", {})
+    opt_block = data.get("optimization_parameters", {})
+    solver_opts = data.get("solver_options", {})
 
-    objective = opt_block.get("Objective", "")
+    objective = opt_block.get("objective", "")
 
     if objective == "maxSpending":
         target = solver_opts.get("bequest")
@@ -312,11 +312,11 @@ def print_case_list(directory: Path) -> list[Path]:
     for idx, path in indexed:
         data = load_case_metadata(path)
 
-        case_name = data.get("Plan Name", "")
+        case_name = data.get("case_name", "")
         if len(case_name) > 20:
             case_name = case_name[:16] + "..."
 
-        hfp_name = data.get("Household Financial Profile", {}).get("HFP file name", "")
+        hfp_name = data.get("household_financial_profile", {}).get("HFP_file_name", "")
 
         opt_display = format_optimization_summary(data)
 

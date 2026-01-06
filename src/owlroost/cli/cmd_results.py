@@ -69,7 +69,7 @@ def strip_override_prefix(override: str) -> str:
 
 @click.command(name="results")
 @click.argument("case", required=False)
-@click.argument("run_id", required=False, type=int)  # ← NEW
+@click.argument("run_id", required=False, type=int)
 @click.option("--diff", is_flag=True, help="Diff _original.toml vs _effective.toml.")
 @click.option(
     "--diff-project",
@@ -94,20 +94,8 @@ def cmd_results(
 ):
     """
     Display case and run results from the ./results directory.
-
-    roost results [CASE] [RUN_ID]
-
-    roost results - displays summary of runs by case name found in the ./results directory
-
-    \b
-    roost results jack+jill
-    roost results 0           - displays detailed breakdown of runs for the specified case
-
-    \b
-    roost results jack+jill 0 - displays detailed results for the specified run ID
-
-    Use options to customize the output for a specific run.
     """
+
     if diff and diff_project:
         raise click.ClickException("Use only one of --diff or --diff-project")
 
@@ -149,7 +137,7 @@ def cmd_results(
         return
 
     # --------------------------------------------------
-    # CASE + RUN_ID → per-run inspection (NEW)
+    # CASE + RUN_ID → per-run inspection
     # --------------------------------------------------
     runs = flatten_runs(selected)
 
@@ -158,7 +146,6 @@ def cmd_results(
 
     run = runs[run_id]
 
-    # Default: metrics
     if not any([metrics, summary, original, effective]):
         metrics = True
 
@@ -295,7 +282,7 @@ def load_metrics(run_dir: Path) -> dict | None:
 
 
 # ---------------------------------------------------------------------
-# Rendering helpers (NEW)
+# Rendering helpers
 # ---------------------------------------------------------------------
 
 
@@ -336,98 +323,6 @@ def render_effective_toml(run_dir: Path):
         click.echo("(no effective TOML found)")
         return
     click.echo(p.read_text(encoding="utf-8"))
-
-
-# ---------------------------------------------------------------------
-# Rendering
-# ---------------------------------------------------------------------
-
-
-def render_case_summary(cases: list[Case]):
-    click.echo(f"Found {len(cases)} cases in ./results\n")
-
-    header = f"{'ID':<3} {'CASE NAME':<25} {'EXPERIMENTS':<12} {'RUNS':<6}"
-    click.echo(header)
-    click.echo("-" * len(header))
-
-    for idx, case in enumerate(cases):
-        exp_count = len(case.experiments)
-        run_count = sum(len(exp.runs) for exp in case.experiments)
-
-        click.echo(f"{idx:<3} " f"{case.name:<25} " f"{exp_count:<12} " f"{run_count:<6}")
-
-
-def render_case_breakdown(case: Case, diff_mode: str | None, value_mode: str):
-    click.echo(f"\nCase: {case.name}\n")
-
-    # Column widths
-    w_exp = 3
-    w_id = 3
-    w_run = 6
-    w_type = 7
-    w_obj = 12
-    w_avg = 9
-    w_net = 9
-    w_beq = 9
-
-    header1 = (
-        f"{'':>{w_exp}} {'':>{w_id}} {'':>{w_run}} {'':<{w_type}} {'':<{w_obj}} "
-        f"{'$/yr':>{w_avg}} {'NetSpend':>{w_net}} {'Bequest':>{w_beq}}   Overrides"
-    )
-    header2 = (
-        f"{'EXP':>{w_exp}} {'ID':>{w_id}} {'Name':<{w_run}} {'Type':<{w_type}} {'Objective':<{w_obj}} "
-        f"{'(real $K)':>{w_avg}} ({value_mode} $K){'':>{w_net - len(value_mode) - 3}} "
-        f"({value_mode} $K)"
-    )
-
-    click.echo(header1)
-    click.echo(header2)
-    click.echo("-" * max(len(header1), len(header2)))
-
-    row_id = 0
-
-    for exp_id, exp in enumerate(case.experiments):
-        for run in exp.runs:
-            eff = load_effective_toml(run.run_dir) or {}
-            metrics = load_metrics(run.run_dir) or {}
-
-            objective = eff.get("Optimization Parameters", {}).get("Objective", "—")
-
-            net_key = f"total_net_spending_{value_mode}"
-            beq_key = f"total_final_bequest_{value_mode}"
-
-            net = format_k(metrics.get(net_key))
-            beq = format_k(metrics.get(beq_key))
-
-            try:
-                y0_spend = metrics.get("net_spending_for_plan_year_0")
-                if y0_spend is not None:
-                    y0_spend = y0_spend / 1000.0
-                    y0_fmt = f"${y0_spend:,.1f}K"
-                else:
-                    y0_fmt = "—"
-            except Exception:
-                y0_fmt = "—"
-
-            overrides = ", ".join(run.overrides) if run.overrides else "—"
-
-            click.echo(
-                f"{exp_id:>{w_exp}} "
-                f"{row_id:>{w_id}} "
-                f"{run.run_name:<{w_run}} "
-                f"{run.run_type:<{w_type}} "
-                f"{objective:<{w_obj}} "
-                f"{y0_fmt:>{w_avg}} "
-                f"{net:>{w_net}} "
-                f"{beq:>{w_beq}}   "
-                f"{overrides}"
-            )
-
-            if diff_mode:
-                render_run_diff(run.run_dir, diff_mode)
-                click.echo()
-
-            row_id += 1
 
 
 def render_run_diff(run_dir: Path, diff_mode: str):
@@ -471,6 +366,92 @@ def render_run_diff(run_dir: Path, diff_mode: str):
     # -------------------------
     for k, v in diffs["removed"].items():
         click.echo(f"    - {k}: {v}")
+
+
+# ---------------------------------------------------------------------
+# Rendering
+# ---------------------------------------------------------------------
+
+
+def render_case_summary(cases: list[Case]):
+    click.echo(f"Found {len(cases)} cases in ./results\n")
+
+    header = f"{'ID':<3} {'CASE NAME':<25} {'EXPERIMENTS':<12} {'RUNS':<6}"
+    click.echo(header)
+    click.echo("-" * len(header))
+
+    for idx, case in enumerate(cases):
+        exp_count = len(case.experiments)
+        run_count = sum(len(exp.runs) for exp in case.experiments)
+
+        click.echo(f"{idx:<3} {case.name:<25} {exp_count:<12} {run_count:<6}")
+
+
+def render_case_breakdown(case: Case, diff_mode: str | None, value_mode: str):
+    click.echo(f"\nCase: {case.name}\n")
+
+    w_exp = 3
+    w_id = 3
+    w_run = 6
+    w_type = 7
+    w_obj = 12
+    w_avg = 9
+    w_net = 9
+    w_beq = 9
+
+    header1 = (
+        f"{'':>{w_exp}} {'':>{w_id}} {'':>{w_run}} {'':<{w_type}} {'':<{w_obj}} "
+        f"{'$/yr':>{w_avg}} {'NetSpend':>{w_net}} {'Bequest':>{w_beq}}   Overrides"
+    )
+    header2 = (
+        f"{'EXP':>{w_exp}} {'ID':>{w_id}} {'Name':<{w_run}} {'Type':<{w_type}} "
+        f"{'Objective':<{w_obj}} "
+        f"{'(real $K)':>{w_avg}} ({value_mode} $K)"
+        f"{'':>{w_net - len(value_mode) - 3}} "
+        f"({value_mode} $K)"
+    )
+
+    click.echo(header1)
+    click.echo(header2)
+    click.echo("-" * max(len(header1), len(header2)))
+
+    row_id = 0
+
+    for exp_id, exp in enumerate(case.experiments):
+        for run in exp.runs:
+            eff = load_effective_toml(run.run_dir) or {}
+            metrics = load_metrics(run.run_dir) or {}
+
+            objective = eff.get("optimization_parameters", {}).get("objective", "—")
+
+            net_key = f"total_net_spending_{value_mode}"
+            beq_key = f"total_final_bequest_{value_mode}"
+
+            net = format_k(metrics.get(net_key))
+            beq = format_k(metrics.get(beq_key))
+
+            y0_spend = metrics.get("net_spending_for_plan_year_0")
+            y0_fmt = f"${y0_spend / 1000:,.1f}K" if y0_spend else "—"
+
+            overrides = ", ".join(run.overrides) if run.overrides else "—"
+
+            click.echo(
+                f"{exp_id:>{w_exp}} "
+                f"{row_id:>{w_id}} "
+                f"{run.run_name:<{w_run}} "
+                f"{run.run_type:<{w_type}} "
+                f"{objective:<{w_obj}} "
+                f"{y0_fmt:>{w_avg}} "
+                f"{net:>{w_net}} "
+                f"{beq:>{w_beq}}   "
+                f"{overrides}"
+            )
+
+            if diff_mode:
+                render_run_diff(run.run_dir, diff_mode)
+                click.echo()
+
+            row_id += 1
 
 
 # ---------------------------------------------------------------------

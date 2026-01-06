@@ -19,9 +19,9 @@ def toml_plan_name(path: str) -> str:
     data = toml.load(p)
 
     try:
-        name = data["Plan Name"]
+        name = data["case_name"]
     except KeyError as e:
-        raise KeyError(f"'Plan Name' not found in section of {p}") from e
+        raise KeyError(f"'Case Name' not found in section of {p}") from e
 
     # Normalize for filesystem safety
     return name.strip().replace(" ", "_").replace("&", "and")

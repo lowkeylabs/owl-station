@@ -71,13 +71,13 @@ def cmd_cases(selector):
         return
 
     # ------------------------------------------------------------
-    # No selector → list all cases (shared)
+    # No selector → list all cases
     # ------------------------------------------------------------
     print_case_list(directory)
 
 
 # ======================================================================
-# Single-case display (UNCHANGED)
+# Single-case display
 # ======================================================================
 
 
@@ -93,90 +93,116 @@ def _display_case(path: Path):
         return
 
     click.echo(f"CASE FILE : {path.name}")
-    click.echo(f"PLAN NAME : {data.get('Plan Name', '')}")
+    click.echo(f"CASE NAME : {data.get('case_name', '')}")
     click.echo("-" * 80)
 
-    desc = data.get("Description")
+    # ------------------------------------------------------------
+    # Description
+    # ------------------------------------------------------------
+    desc = data.get("description")
     if desc:
         click.echo("DESCRIPTION")
         click.echo(desc)
         click.echo()
 
-    basic = data.get("Basic Info", {})
+    # ------------------------------------------------------------
+    # Basic household info
+    # ------------------------------------------------------------
+    basic = data.get("basic_info", {})
     if basic:
         click.echo("HOUSEHOLD")
-        if basic.get("Names"):
-            click.echo(f"  Members        : {', '.join(basic['Names'])}")
-        if basic.get("Status"):
-            click.echo(f"  Status         : {basic['Status']}")
-        if basic.get("Date of birth"):
-            click.echo(f"  Birth dates    : {', '.join(basic['Date of birth'])}")
-        if basic.get("Life expectancy"):
-            click.echo(f"  Life expectancy: {', '.join(map(str, basic['Life expectancy']))}")
-        if basic.get("Start date"):
-            click.echo(f"  Start date     : {basic['Start date']}")
+        if basic.get("names"):
+            click.echo(f"  Members        : {', '.join(basic['names'])}")
+        if basic.get("status"):
+            click.echo(f"  Status         : {basic['status']}")
+        if basic.get("date_of_birth"):
+            click.echo(f"  Birth dates    : {', '.join(basic['date_of_birth'])}")
+        if basic.get("life_expectancy"):
+            click.echo(f"  Life expectancy: {', '.join(map(str, basic['life_expectancy']))}")
+        if basic.get("start_date"):
+            click.echo(f"  Start date     : {basic['start_date']}")
         click.echo()
 
-    assets = data.get("Assets", {})
+    # ------------------------------------------------------------
+    # Savings assets
+    # ------------------------------------------------------------
+    assets = data.get("savings_assets", {})
     if assets:
         click.echo("ASSETS (balances)")
-        click.echo(f"  Taxable        : {sum(assets.get('taxable savings balances', []))}")
-        click.echo(f"  Tax-deferred   : {sum(assets.get('tax-deferred savings balances', []))}")
-        click.echo(f"  Tax-free       : {sum(assets.get('tax-free savings balances', []))}")
+        click.echo(f"  Taxable        : {sum(assets.get('taxable_savings_balances', []))}")
+        click.echo(f"  Tax-deferred   : {sum(assets.get('tax_deferred_savings_balances', []))}")
+        click.echo(f"  Tax-free       : {sum(assets.get('tax_free_savings_balances', []))}")
         click.echo()
 
-    hfp = data.get("Household Financial Profile", {})
-    if hfp.get("HFP file name"):
+    # ------------------------------------------------------------
+    # Household financial profile
+    # ------------------------------------------------------------
+    hfp = data.get("household_financial_profile", {})
+    if hfp.get("HFP_file_name"):
         click.echo("HOUSEHOLD FINANCIAL PROFILE")
-        click.echo(f"  HFP file       : {hfp['HFP file name']}")
+        click.echo(f"  HFP file       : {hfp['HFP_file_name']}")
         click.echo()
 
-    fixed = data.get("Fixed Income", {})
+    # ------------------------------------------------------------
+    # Fixed income
+    # ------------------------------------------------------------
+    fixed = data.get("fixed_income", {})
     if fixed:
-        if fixed.get("Pension monthly amounts") or fixed.get("Social security PIA amounts"):
+        if fixed.get("pension_monthly_amounts") or fixed.get("social_security_pia_amounts"):
             click.echo("FIXED INCOME")
-            if fixed.get("Pension monthly amounts"):
+            if fixed.get("pension_monthly_amounts"):
                 click.echo(
-                    f"  Pensions (monthly): {', '.join(map(str, fixed['Pension monthly amounts']))}"
+                    f"  Pensions (monthly): "
+                    f"{', '.join(map(str, fixed['pension_monthly_amounts']))}"
                 )
-            if fixed.get("Social security PIA amounts"):
+            if fixed.get("social_security_pia_amounts"):
                 click.echo(
-                    f"  Social Security PIA: {', '.join(map(str, fixed['Social security PIA amounts']))}"
+                    f"  Social Security PIA: "
+                    f"{', '.join(map(str, fixed['social_security_pia_amounts']))}"
                 )
             click.echo()
 
-    rates = data.get("Rates Selection", {})
-    if rates.get("Method"):
+    # ------------------------------------------------------------
+    # Rates
+    # ------------------------------------------------------------
+    rates = data.get("rates_selection", {})
+    if rates.get("method"):
         click.echo("RATES")
-        click.echo(f"  Method         : {rates['Method']}")
-        if rates.get("Values"):
-            click.echo(f"  Values         : {rates['Values']}")
+        click.echo(f"  Method         : {rates['method']}")
+        if rates.get("from") is not None and rates.get("to") is not None:
+            click.echo(f"  Window         : {rates['from']}–{rates['to']}")
         click.echo()
 
-    alloc = data.get("Asset Allocation", {})
-    if alloc.get("Type") or alloc.get("Interpolation method"):
+    # ------------------------------------------------------------
+    # Asset allocation
+    # ------------------------------------------------------------
+    alloc = data.get("asset_allocation", {})
+    if alloc.get("type") or alloc.get("interpolation_method"):
         click.echo("ASSET ALLOCATION")
-        if alloc.get("Type"):
-            click.echo(f"  Type           : {alloc['Type']}")
-        if alloc.get("Interpolation method"):
-            click.echo(f"  Interpolation  : {alloc['Interpolation method']}")
+        if alloc.get("type"):
+            click.echo(f"  Type           : {alloc['type']}")
+        if alloc.get("interpolation_method"):
+            click.echo(f"  Interpolation  : {alloc['interpolation_method']}")
         click.echo()
 
-    opt = data.get("Optimization Parameters", {})
-    solver = data.get("Solver Options", {})
+    # ------------------------------------------------------------
+    # Optimization & solver
+    # ------------------------------------------------------------
+    opt = data.get("optimization_parameters", {})
+    solver = data.get("solver_options", {})
 
     if opt:
         click.echo("OPTIMIZATION")
-        if opt.get("Objective"):
-            click.echo(f"  Objective      : {opt['Objective']}")
-        if opt.get("Spending profile"):
-            click.echo(f"  Spending model : {opt['Spending profile']}")
-        if opt.get("Surviving spouse spending percent") is not None:
-            click.echo(f"  Survivor spend : {opt['Surviving spouse spending percent']}%")
+        if opt.get("objective"):
+            click.echo(f"  Objective      : {opt['objective']}")
+        if opt.get("spending_profile"):
+            click.echo(f"  Spending model : {opt['spending_profile']}")
+        if opt.get("surviving_spouse_spending_percent") is not None:
+            click.echo(f"  Survivor spend : " f"{opt['surviving_spouse_spending_percent']}%")
 
-        if opt.get("Objective") == "maxSpending" and solver.get("bequest") is not None:
+        if opt.get("objective") == "maxSpending" and solver.get("bequest") is not None:
             click.echo(f"  Target         : bequest = {solver['bequest']}")
-        if opt.get("Objective") == "maxBequest" and solver.get("netSpending") is not None:
+        if opt.get("objective") == "maxBequest" and solver.get("netSpending") is not None:
             click.echo(f"  Target         : netSpending = {solver['netSpending']}")
 
         click.echo()
@@ -207,7 +233,7 @@ def _display_case(path: Path):
 
 
 # ======================================================================
-# Comparison display (UNCHANGED)
+# Comparison display
 # ======================================================================
 
 
@@ -236,7 +262,7 @@ def _display_case_compare(paths: list[Path]):
     def fmt(val):
         if isinstance(val, list):
             return ", ".join(map(str, val)) or "."
-        return str(val)
+        return "." if val is None else str(val)
 
     col_width = 22
     label_width = 30
@@ -248,35 +274,41 @@ def _display_case_compare(paths: list[Path]):
     click.echo("-" * (label_width + col_width * len(cases)))
 
     rows = [
-        ("PLAN NAME", lambda d: d.get("Plan Name", ".")),
-        ("HFP FILE", lambda d: get(d, "Household Financial Profile", "HFP file name")),
-        ("HOUSEHOLD NAMES", lambda d: fmt(get(d, "Basic Info", "Names"))),
-        ("START DATE", lambda d: get(d, "Basic Info", "Start date")),
-        ("LIFE EXPECTANCY", lambda d: fmt(get(d, "Basic Info", "Life expectancy"))),
-        ("TAXABLE ASSETS", lambda d: sum(get(d, "Assets", "taxable savings balances") or [])),
+        ("CASE NAME", lambda d: d.get("case_name", ".")),
+        ("HFP FILE", lambda d: get(d, "household_financial_profile", "HFP_file_name")),
+        ("HOUSEHOLD NAMES", lambda d: fmt(get(d, "basic_info", "names"))),
+        ("START DATE", lambda d: get(d, "basic_info", "start_date")),
+        ("LIFE EXPECTANCY", lambda d: fmt(get(d, "basic_info", "life_expectancy"))),
+        (
+            "TAXABLE ASSETS",
+            lambda d: sum(get(d, "savings_assets", "taxable_savings_balances") or []),
+        ),
         (
             "TAX-DEFERRED ASSETS",
-            lambda d: sum(get(d, "Assets", "tax-deferred savings balances") or []),
+            lambda d: sum(get(d, "savings_assets", "tax_deferred_savings_balances") or []),
         ),
-        ("TAX-FREE ASSETS", lambda d: sum(get(d, "Assets", "tax-free savings balances") or [])),
-        ("OPT OBJECTIVE", lambda d: get(d, "Optimization Parameters", "Objective")),
+        (
+            "TAX-FREE ASSETS",
+            lambda d: sum(get(d, "savings_assets", "tax_free_savings_balances") or []),
+        ),
+        ("OPT OBJECTIVE", lambda d: get(d, "optimization_parameters", "objective")),
         (
             "OPT TARGET",
-            lambda d: f"bequest={get(d,'Solver Options','bequest')}"
-            if get(d, "Optimization Parameters", "Objective") == "maxSpending"
-            else f"netSpending={get(d,'Solver Options','netSpending')}"
-            if get(d, "Optimization Parameters", "Objective") == "maxBequest"
+            lambda d: f"bequest={get(d,'solver_options','bequest')}"
+            if get(d, "optimization_parameters", "objective") == "maxSpending"
+            else f"netSpending={get(d,'solver_options','netSpending')}"
+            if get(d, "optimization_parameters", "objective") == "maxBequest"
             else ".",
         ),
         (
             "ROTH EXCLUDED",
             lambda d: "no one excluded"
-            if get(d, "Solver Options", "noRothConversions") == "None"
-            else fmt(get(d, "Solver Options", "noRothConversions")),
+            if get(d, "solver_options", "noRothConversions") == "None"
+            else fmt(get(d, "solver_options", "noRothConversions")),
         ),
-        ("ROTH START YEAR", lambda d: get(d, "Solver Options", "startRothConversions")),
-        ("MAX ROTH CONV", lambda d: get(d, "Solver Options", "maxRothConversion")),
-        ("SOLVER", lambda d: get(d, "Solver Options", "solver")),
+        ("ROTH START YEAR", lambda d: get(d, "solver_options", "startRothConversions")),
+        ("MAX ROTH CONV", lambda d: get(d, "solver_options", "maxRothConversion")),
+        ("SOLVER", lambda d: get(d, "solver_options", "solver")),
     ]
 
     for label, extractor in rows:
