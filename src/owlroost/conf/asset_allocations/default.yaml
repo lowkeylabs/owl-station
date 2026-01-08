@@ -1,0 +1,13 @@
+
+interpolation_method: "s-curve"
+interpolation_center: 15.0
+interpolation_width: 5.0
+type: "individual"
+
+generic:
+  - 
+    - [60, 40, 0, 0]
+    - [60, 40, 0, 0]
+  - 
+    - [60, 40, 0, 0]
+    - [60, 40, 0, 0]

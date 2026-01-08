@@ -1,19 +1,32 @@
 defaults:
   - logging: default
-  - longevity: default
+  - case: default
+  - basic_info: default
+  - savings_assets: default
+  - fixed_income: default
+  - asset_allocations: default
+  - rates: default
   - optimization: default
   - solver: default
-  - case: default
+  - trial: default
   - hydra/sweep: basic
-  - override hydra/sweep: flat
+  - override hydra/sweep: flat     # run directory is set here
   - override hydra/hydra_logging: disabled
   - override hydra/job_logging: disabled
   - override hydra/launcher: joblib
   - _self_
 
+experiment:
+  - id: ${now:%Y-%m-%d}_${now:%H-%M-%S}
+
+
+trial:
+  id: 0
+  count: 1
+  n_jobs: 4
+
+
 hydra:
-  run:   # Sweep isn't needed because we're overriding above
-    dir: results/${case.name}/${now:%Y-%m-%d}/${now:%H-%M-%S}/${hydra:job.id}
   job:
     chdir: true
     name: run

@@ -1,0 +1,5 @@
+# conf/trial/default.yaml
+
+id: 0          # which trial this Hydra job represents
+count: 1       # total number of trials intended for the experiment
+n_jobs: 1      # max concurrent trials executed inside this Hydra job

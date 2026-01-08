@@ -1,0 +1,5 @@
+taxable_savings_balances: [650.0, 250.0]
+tax_deferred_savings_balances: [1500.0, 500.0]
+tax_free_savings_balances: [60.0, 40.0]
+beneficiary_fractions: [1.0, 1.0, 1.0]
+spousal_surplus_deposit_fraction: 0.5

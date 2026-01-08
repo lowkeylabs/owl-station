@@ -1,0 +1,9 @@
+# conf/basic_info/default.yaml
+
+status: "married"
+
+names: ["Kim", "Sam"]
+date_of_birth: ["1964-01-15", "1965-01-15"]
+life_expectancy: [89, 93]
+
+start_date: "2026-01-01"

@@ -17,7 +17,15 @@ from owlroost.cli.utils import (
 )
 
 CONF_DIR = Path(__file__).parents[1] / "conf"
-helper_groups = ["solver", "optimization", "longevity"]
+helper_groups = [
+    "basic_info",
+    "savings_assets",
+    "fixed_income",
+    "rates",
+    "asset_allocation",
+    "optimization",
+    "solver",
+]
 
 # ---------------------------------------------------------------------
 # Helpers
@@ -59,6 +67,11 @@ def normalize_hydra_overrides(overrides: list[str]) -> list[str]:
 def build_hydra_command(
     case_file: Path | None,
     overrides: list[str],
+    *,
+    trials: int | None,
+    trial_jobs: int | None,
+    run_jobs: int | None,
+    trial_id: int | None,
 ) -> list[str]:
     """
     Construct subprocess command invoking owl_hydra_run.py.
@@ -85,6 +98,20 @@ def build_hydra_command(
     if case_file:
         cmd.append(f"case.file={case_file}")
 
+    # Trial controls
+    if trials is not None:
+        cmd.append(f"trial.count={trials}")
+
+    if trial_jobs is not None:
+        cmd.append(f"trial.n_jobs={trial_jobs}")
+
+    if trial_id is not None:
+        cmd.append(f"trial.id={trial_id}")
+
+    # Run controls (Hydra launcher parallelism)
+    if run_jobs is not None:
+        cmd.append(f"launcher.n_jobs={run_jobs}")
+
     # Pass-through Hydra overrides verbatim
     cmd.extend(overrides)
 
@@ -100,14 +127,25 @@ def build_run_help(cmd) -> str:
     conf_dir = Path(__file__).parents[1] / "conf"
 
     parts = [
-        "Usage: roost run [CASE] [OVERRIDES...]\n",
+        "Usage: roost run [CASE] [OPTIONS] [OVERRIDES...]\n",
         "Run OWL via Hydra.\n",
+        "",
+        "Parallelism:",
+        "  -t, --trials INTEGER          Number of stochastic trials (trial.count)",
+        "      --trial-id INTEGER        Run a specific trial id (trial.id)",
+        "      --trial-jobs INTEGER      Max concurrent trials per run (trial.n_jobs)",
+        "      --run-jobs INTEGER        Max concurrent Hydra runs (launcher.n_jobs)",
+        "",
         "Examples:",
-        "  roost run",
-        "  roost run base.toml solver.netSpending=65.7\n",
+        "  roost run Case.toml",
+        "  roost run Case.toml -t 100",
+        "  roost run Case.toml --trial-id 7",
+        "  roost run Case.toml -t 100 --trial-id 7",
+        "  roost run Case.toml -t 100 --trial-jobs 8 --run-jobs 4",
+        "",
         format_override_help(
             conf_dir,
-            groups=["solver", "optimization", "longevity"],
+            groups=helper_groups,
         ),
         format_click_options(cmd),
     ]
@@ -128,8 +166,44 @@ def build_run_help(cmd) -> str:
     ),
 )
 @click.argument("case", required=False)
+@click.option(
+    "-t",
+    "--trials",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Number of stochastic trials (trial.count).",
+)
+@click.option(
+    "--trial-id",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Run a specific trial id (trial.id).",
+)
+@click.option(
+    "--trial-jobs",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Max concurrent trials per run (trial.n_jobs).",
+)
+@click.option(
+    "--run-jobs",
+    type=int,
+    default=None,
+    show_default=False,
+    help="Max concurrent Hydra runs (launcher.n_jobs).",
+)
 @click.pass_context
-def cmd_run(ctx: click.Context, case: str | None):
+def cmd_run(
+    ctx: click.Context,
+    case: str | None,
+    trials: int | None,
+    trial_id: int | None,
+    trial_jobs: int | None,
+    run_jobs: int | None,
+):
     """
     Run an OWL case via Hydra.
     """
@@ -159,9 +233,20 @@ def cmd_run(ctx: click.Context, case: str | None):
 
     logger.debug("Resolved case file: {}", case_file)
     logger.debug("Hydra overrides: {}", hydra_overrides)
+    logger.debug("Trials: {}", trials)
+    logger.debug("Trial ID: {}", trial_id)
+    logger.debug("Trial jobs: {}", trial_jobs)
+    logger.debug("Run jobs: {}", run_jobs)
 
     # Build subprocess command
-    cmd = build_hydra_command(case_file, hydra_overrides)
+    cmd = build_hydra_command(
+        case_file,
+        hydra_overrides,
+        trials=trials,
+        trial_jobs=trial_jobs,
+        run_jobs=run_jobs,
+        trial_id=trial_id,
+    )
 
     logger.debug("Executing Hydra:")
     logger.debug("  {}", " ".join(cmd))

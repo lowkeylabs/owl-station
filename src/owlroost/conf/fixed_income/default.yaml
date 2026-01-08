@@ -1,0 +1,5 @@
+pension_monthly_amounts: [0, 0]
+pension_ages: [65.0, 65.0]
+pension_indexed: [false, false]
+social_security_pia_amounts: [3500, 2000]
+social_security_ages: [70.0, 68.0]

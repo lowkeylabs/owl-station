@@ -1,5 +1,5 @@
 # src/owlroost/core/owl_runner.py
-
+import ast
 import json
 from copy import deepcopy
 from dataclasses import dataclass
@@ -9,6 +9,7 @@ from pathlib import Path
 
 import numpy as np
 import owlplanner as owl
+import pandas as pd
 import toml
 from loguru import logger
 
@@ -32,88 +33,62 @@ class PlanRunResult:
 # ---------------------------------------------------------------------
 
 
-def apply_longevity_override(diconf: dict, cfg_longevity: dict):
-    """
-    Apply longevity overrides from merged Hydra config.
-
-    Supported forms:
-      {"values": [80, None]}
-      {"values": {0: 80}}
-      {"values": 80}   # single-person case
-    """
-    expectancy = diconf["basic_info"]["life_expectancy"]
-    values = cfg_longevity.get("values")
-
-    # -------------------------------
-    # Scalar → person 0
-    # -------------------------------
-    if isinstance(values, (int | float)):
-        expectancy[0] = int(values)
-        return
-
-    # -------------------------------
-    # Dict index overrides (Hydra)
-    # -------------------------------
-    if isinstance(values, dict):
-        for i, le in values.items():
-            if le is not None:
-                expectancy[int(i)] = int(le)
-        return
-
-    # -------------------------------
-    # List overrides (TOML-style)
-    # -------------------------------
-    if isinstance(values, (list | tuple)):
-        if len(values) > len(expectancy):
-            raise ValueError(
-                f"Longevity override has {len(values)} values, "
-                f"but dataset only has {len(expectancy)} people"
-            )
-        for i, le in enumerate(values):
-            if le is not None:
-                expectancy[i] = int(le)
-        return
-
-    raise TypeError(f"Unsupported longevity.values type: {type(values)}")
+def coerce_override_value(v):
+    if isinstance(v, str):
+        try:
+            parsed = ast.literal_eval(v)
+            return parsed
+        except (ValueError, SyntaxError):
+            return v
+    return v
 
 
-def apply_optimization_override(diconf: dict, value: dict):
-    """
-    Apply optimization strategy overrides.
-
-    Example:
-        {"objective": "maxBequest"}
-    """
-    opt = diconf.setdefault("optimization_parameters", {})
-    for k, v in value.items():
-        opt[k] = v
-
-
-def apply_solver_override(diconf: dict, value: dict):
-    """
-    Apply solver option overrides.
-
-    Example:
-        {
-            "netSpending": 90,
-            "bequest": 500,
-            "noRothConversions": "Jill",
-            "maxRothConversion": 100
-        }
-    """
-    solver = diconf.setdefault("solver_options", {})
+def apply_generic_overrides(key: str, diconf: dict, value: dict):
+    group = diconf.setdefault(key, {})
 
     for k, v in value.items():
-        solver[k] = v
-        logger.debug("Applied solver override: {}={}", k, v)
+        v = coerce_override_value(v)
+        logger.debug("Overrides: {}: {}={}", key, k, v)
+        group[k] = v
+
+
+def apply_basic_info_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("basic_info", diconf, value)
+
+
+def apply_savings_assets_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("savings_assets", diconf, value)
+
+
+def apply_fixed_income_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("fixed_income", diconf, value)
+
+
+def apply_rates_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("rates_selection", diconf, value)
+
+
+def apply_asset_allocation_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("asset_allocation", diconf, value)
+
+
+def apply_optimization_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("optimization_parameters", diconf, value)
+
+
+def apply_solver_overrides(diconf: dict, value: dict):
+    apply_generic_overrides("solver_options", diconf, value)
 
 
 OVERRIDE_HANDLERS = {
-    "longevity": apply_longevity_override,
-    "optimization": apply_optimization_override,
-    "solver": apply_solver_override,
+    "basic_info": apply_basic_info_overrides,
+    "savings_assets": apply_savings_assets_overrides,
+    "fixed_income": apply_fixed_income_overrides,
+    "rates": apply_rates_overrides,
+    "asset_allocation": apply_asset_allocation_overrides,
+    "optimization": apply_optimization_overrides,
+    "solver": apply_solver_overrides,
 }
-
 
 # ---------------------------------------------------------------------
 # TOML load / override helpers
@@ -216,14 +191,46 @@ def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: s
     """
     normalize_optimization(plan)
 
+    output_path = Path(output_file)
+
+    # Save these files before call.  ORIGINAL TOML
+    original_toml_path = output_path.with_suffix("").with_name(output_path.stem + "_original.toml")
+    with open(original_toml_path, "w", encoding="utf-8") as f:
+        f.write(original_toml)
+
+    # Safe before solve. EFFECTIVE TOML
+    effective_toml_path = output_path.with_suffix("").with_name(
+        output_path.stem + "_effective.toml"
+    )
+    with open(effective_toml_path, "w", encoding="utf-8") as f:
+        f.write(effective_toml)
+
+    # save rates
+    rates_dict = {
+        "Year": plan.year_n.tolist(),
+        "S&P 500": plan.tau_kn[0].tolist(),
+        "Corporate Baa": plan.tau_kn[1].tolist(),
+        "T Bonds": plan.tau_kn[2].tolist(),
+        "inflation": plan.tau_kn[3].tolist(),
+    }
+    rates_path = output_path.with_suffix("").with_name(output_path.stem + "_rates.xlsx")
+
+    df = pd.DataFrame(rates_dict)
+    df.to_excel(
+        rates_path,
+        index=False,  # no extra index column
+        sheet_name="Rates",  # optional but nice
+    )
+
+    # solve
     plan.solve(plan.objective, plan.solverOptions)
 
     if plan.caseStatus != "solved":
         return
 
-    plan.saveWorkbook(basename=output_file, overwrite=True)
+    # Save these files if solve was OK.
 
-    output_path = Path(output_file)
+    plan.saveWorkbook(basename=output_file, overwrite=True)
 
     # METRICS
     metrics_path = output_path.with_suffix("").with_name(output_path.stem + "_metrics.json")
@@ -233,18 +240,6 @@ def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: s
     summary_path = output_path.with_suffix("").with_name(output_path.stem + "_summary.json")
     with open(summary_path, "w") as f:
         json.dump(plan.summaryDic(), f, indent=2, sort_keys=False, default=json_safe)
-
-    # ORIGINAL TOML
-    original_toml_path = output_path.with_suffix("").with_name(output_path.stem + "_original.toml")
-    with open(original_toml_path, "w", encoding="utf-8") as f:
-        f.write(original_toml)
-
-    # EFFECTIVE TOML
-    effective_toml_path = output_path.with_suffix("").with_name(
-        output_path.stem + "_effective.toml"
-    )
-    with open(effective_toml_path, "w", encoding="utf-8") as f:
-        f.write(effective_toml)
 
 
 # ---------------------------------------------------------------------
@@ -280,6 +275,14 @@ def run_single_case(
 
     toml_buf, toml_text, toml_dict = load_and_override_toml(case_file, semantic_overrides)
 
+    # Safe before solve. EFFECTIVE TOML
+    output_path = Path(output_file)
+    effective_toml_path = output_path.with_suffix("").with_name(
+        output_path.stem + "_effective.toml"
+    )
+    with open(effective_toml_path, "w", encoding="utf-8") as f:
+        f.write(toml_text)
+
     plan = owl.readConfig(
         toml_buf,
         logstreams="loguru",
@@ -295,6 +298,11 @@ def run_single_case(
     if hfp_file:
         hfp_path = Path(case_file).parent / hfp_file
         logger.debug("HFP file: {}", hfp_path)
+
+        # copy/save hfp into trial folder
+        # make changes and resave
+        # finally, load amended contributions file
+
         plan.readContributions(str(hfp_path))
 
     solve_and_save(plan, output_file, toml_text, original_toml)

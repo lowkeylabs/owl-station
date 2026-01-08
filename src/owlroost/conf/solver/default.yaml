@@ -2,10 +2,12 @@ netSpending: 88
 bequest: 500
 
 maxRothConversion: 100
-noRothConversions: Jill
+noRothConversions: "none"
 startRothConversions: 2025
-withMedicare: loop
-solver: HiGHS
+
+withMedicare: "loop"
+
+solver: "HiGHS"
 spendingSlack: 0
 xorConstraints: true
 withSCLoop: true
