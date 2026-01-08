@@ -287,6 +287,27 @@ def format_optimization_summary(data: dict) -> str:
     return objective or ""
 
 
+def format_rates_summary(data: dict) -> str:
+    rates = data.get("rates_selection", {})
+    method = rates.get("method", "")
+
+    if method == "user":
+        values = rates.get("values", [])
+        if isinstance(values, (list | tuple)) and values:
+            values_str = ", ".join(f"{v:g}" for v in values)
+            return f"user [{values_str}]"
+        return "user [?]"
+
+    if method in {"historical", "historical average"}:
+        start = rates.get("from")
+        end = rates.get("to")
+        if start is not None and end is not None:
+            return f"{method} [{start},{end}]"
+        return method
+
+    return method
+
+
 def print_case_list(directory: Path) -> list[Path]:
     """
     Print the standard case list and return the ordered case files.
@@ -300,32 +321,71 @@ def print_case_list(directory: Path) -> list[Path]:
 
     indexed = index_case_files(files)
 
+    # Column widths
+    w_id = 3
+    # w_file = 22
+    w_case = 22
+    w_hfp = 20
+    w_opt = 32
+    w_rates = 30
+
     click.echo(
-        f"{'ID':>3} "
-        f"{'FILE':<30} "
-        f"{'CASE NAME':<20} "
-        f"{'HFP FILE':<25} "
-        f"{'OPTIMIZATION':<25}"
+        f"{'ID':>{w_id}} "
+        #        f"{'FILE':<{w_file}} "
+        f"{'CASE':<{w_case}} "
+        f"{'HFP':<{w_hfp}} "
+        f"{'OPTIMIZATION':<{w_opt}} "
+        f"{'RATES':<{w_rates}}"
     )
-    click.echo("-" * 115)
+
+    click.echo("-" * (w_id + w_case + w_hfp + w_opt + w_rates + 5))
 
     for idx, path in indexed:
         data = load_case_metadata(path)
 
+        # Case name
         case_name = data.get("case_name", "")
-        if len(case_name) > 20:
-            case_name = case_name[:16] + "..."
+        if len(case_name) > w_case:
+            case_name = case_name[: w_case - 3] + "..."
 
-        hfp_name = data.get("household_financial_profile", {}).get("HFP_file_name", "")
+        # HFP file
+        hfp_raw = data.get("household_financial_profile", {}).get("HFP_file_name", "")
+        if hfp_raw:
+            hfp_path = (path.parent / hfp_raw).resolve()
+            hfp_exists = hfp_path.exists()
+            hfp_name = Path(hfp_raw).stem
+        else:
+            hfp_exists = False
+            hfp_name = ""
 
+        hfp_mark = "✓" if hfp_exists else "✗"
+        hfp_display = f"{hfp_mark}{hfp_name}"
+
+        if hfp_name:
+            hfp_name = str(Path(hfp_name).stem)
+
+        if len(hfp_name) > w_hfp:
+            hfp_name = hfp_name[: w_hfp - 3] + "..."
+
+        # Optimization summary
         opt_display = format_optimization_summary(data)
+        if len(opt_display) > w_opt:
+            opt_display = opt_display[: w_opt - 3] + "..."
+
+        # rates_selection.method
+
+        rates_display = format_rates_summary(data)
+
+        #        if len(rates_display) > w_rates:
+        #            rates_display = rates_display[: w_rates - 3] + "..."
 
         click.echo(
-            f"{idx:>3} "
-            f"{path.stem:<30} "
-            f"{case_name:<20} "
-            f"{hfp_name:<25} "
-            f"{opt_display:<25}"
+            f"{idx:>{w_id}} "
+            #            f"{path.stem:<{w_file}} "
+            f"{case_name:<{w_case}} "
+            f"{hfp_display:<{w_hfp}} "
+            f"{opt_display:<{w_opt}} "
+            f"{rates_display:<{w_rates}}"
         )
 
     return files

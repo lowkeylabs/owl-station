@@ -1,6 +1,7 @@
 # src/owlroost/core/owl_runner.py
 import ast
 import json
+import shutil
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import date, datetime
@@ -133,11 +134,7 @@ def load_and_override_toml(case_file: str, overrides: dict) -> tuple[StringIO, s
 
             handler(diconf, value)
 
-    toml_text = toml.dumps(diconf)
-    buf = StringIO(toml_text)
-    buf.seek(0)
-
-    return buf, toml_text, diconf
+    return diconf
 
 
 # ---------------------------------------------------------------------
@@ -230,7 +227,10 @@ def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: s
 
     # Save these files if solve was OK.
 
-    plan.saveWorkbook(basename=output_file, overwrite=True)
+    p = Path(output_file)
+    results_file = p.with_name(f"{p.stem}_results{p.suffix}")
+
+    plan.saveWorkbook(basename=results_file, overwrite=True)
 
     # METRICS
     metrics_path = output_path.with_suffix("").with_name(output_path.stem + "_metrics.json")
@@ -273,39 +273,38 @@ def run_single_case(
         {k: v for k, v in overrides.items() if k in SEMANTIC_OVERRIDE_KEYS} if overrides else None
     )
 
-    toml_buf, toml_text, toml_dict = load_and_override_toml(case_file, semantic_overrides)
+    toml_dict = load_and_override_toml(case_file, semantic_overrides)
 
-    # Safe before solve. EFFECTIVE TOML
-    output_path = Path(output_file)
-    effective_toml_path = output_path.with_suffix("").with_name(
-        output_path.stem + "_effective.toml"
-    )
-    with open(effective_toml_path, "w", encoding="utf-8") as f:
-        f.write(toml_text)
+    hfp_section = toml_dict.get("household_financial_profile", {})
+    hfp_file = hfp_section.get("HFP_file_name")
+
+    trial_path = Path(output_file).parent
+
+    if hfp_file:
+        hfp_path = Path(case_file).parent / hfp_file
+
+        hfp_original = trial_path / f"{hfp_path.stem}_original{hfp_path.suffix}"
+        shutil.copy2(hfp_path, hfp_original)
+
+        hfp_modified = trial_path / f"{hfp_path.stem}_effective{hfp_path.suffix}"
+        shutil.copy2(hfp_original, hfp_modified)
+        hfp_section["HFP_file_name"] = hfp_modified.name
+
+        # Add code to modify hfp_modified as necessary
+
+    modified_toml = toml.dumps(toml_dict)
+    toml_buf = StringIO(modified_toml)
+    toml_buf.seek(0)
 
     plan = owl.readConfig(
         toml_buf,
         logstreams="loguru",
         readContributions=False,
     )
-
-    # -------------------------------------------------
-    # Read contributions / HFP file
-    # -------------------------------------------------
-    hfp_section = toml_dict.get("household_financial_profile", {})
-    hfp_file = hfp_section.get("HFP_file_name")
-
     if hfp_file:
-        hfp_path = Path(case_file).parent / hfp_file
-        logger.debug("HFP file: {}", hfp_path)
+        plan.readContributions(str(hfp_modified))
 
-        # copy/save hfp into trial folder
-        # make changes and resave
-        # finally, load amended contributions file
-
-        plan.readContributions(str(hfp_path))
-
-    solve_and_save(plan, output_file, toml_text, original_toml)
+    solve_and_save(plan, output_file, modified_toml, original_toml)
 
     if plan.caseStatus != "solved":
         return PlanRunResult(status=plan.caseStatus)
@@ -314,5 +313,5 @@ def run_single_case(
         status="solved",
         output_file=output_file,
         summary=plan.summaryDic,
-        adjusted_toml=toml_text,
+        adjusted_toml=modified_toml,
     )

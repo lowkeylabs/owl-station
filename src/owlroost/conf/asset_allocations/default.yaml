@@ -5,9 +5,9 @@ interpolation_width: 5.0
 type: "individual"
 
 generic:
-  - 
+  -
     - [60, 40, 0, 0]
     - [60, 40, 0, 0]
-  - 
+  -
     - [60, 40, 0, 0]
     - [60, 40, 0, 0]

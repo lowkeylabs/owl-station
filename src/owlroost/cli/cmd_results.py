@@ -9,6 +9,8 @@ from typing import Literal
 import click
 import yaml
 
+from owlroost.cli.utils import format_optimization_summary, format_rates_summary
+
 # ---------------------------------------------------------------------
 # Configuration
 # ---------------------------------------------------------------------
@@ -48,9 +50,37 @@ class Case:
     experiments: list[Experiment]
 
 
+@dataclass(frozen=True)
+class FileDescriptor:
+    suffix: str
+    kind: Literal["INPUT", "OUTPUT"]
+    description: str
+
+
 # ---------------------------------------------------------------------
 # Formatting helpers
 # ---------------------------------------------------------------------
+
+FILE_DESCRIPTORS = [
+    FileDescriptor("_original.toml", "INPUT", "Original input TOML file"),
+    FileDescriptor("_effective.toml", "INPUT", "Modified input TOML file, with overrides"),
+    FileDescriptor("_rates.xlsx", "INPUT", "Modified rates just prior to solving"),
+    FileDescriptor("_original.xlsx", "INPUT", "Original HFP xlsx file"),
+    FileDescriptor("_effective.xlsx", "INPUT", "Modified HFP xlsx file, with overrides"),
+    FileDescriptor("_metrics.json", "OUTPUT", "OWL top-level metrics as JSON"),
+    FileDescriptor("_summary.json", "OUTPUT", "OWL top-level metrics as text"),
+    FileDescriptor("_results.xlsx", "OUTPUT", "OWL output workbook with full results"),
+]
+
+
+def describe_file(name: str) -> tuple[str | None, str | None]:
+    """
+    Return (kind, description) for a filename, or (None, None).
+    """
+    for d in FILE_DESCRIPTORS:
+        if name.endswith(d.suffix):
+            return d.kind, d.description
+    return None, None
 
 
 def format_k(value) -> str:
@@ -83,6 +113,7 @@ def strip_override_prefix(override: str) -> str:
 @click.option("--original", is_flag=True)
 @click.option("--effective", is_flag=True)
 @click.option("--nominal", is_flag=True)
+@click.option("--files", is_flag=True)
 def cmd_results(
     case,
     run_id,
@@ -93,15 +124,22 @@ def cmd_results(
     original,
     effective,
     nominal,
+    files,
 ):
     if diff and diff_project:
         raise click.ClickException("Use only one diff mode")
 
     value_mode = "nominal" if nominal else "real"
 
+    if not RESULTS_DIR.exists():
+        click.echo(f"Results directory not found: {RESULTS_DIR}")
+        click.echo("Try running a case!")
+        return
+
     cases = discover_cases(RESULTS_DIR)
     if not cases:
-        click.echo("No cases found.")
+        click.echo("No results found.")
+        click.echo("Try running a case!")
         return
 
     if case is None:
@@ -131,6 +169,8 @@ def cmd_results(
         render_original_toml(trial.path)
     elif effective:
         render_effective_toml(trial.path)
+    elif files:
+        render_files(trial.path)
     else:
         render_metrics(trial.path)
 
@@ -241,16 +281,77 @@ def flatten_trials(case: Case) -> list[Trial]:
     return [trial for exp in case.experiments for run in exp.runs for trial in run.trials]
 
 
-def render_case_summary(cases: list[Case]):
-    click.echo(f"{'ID':<3} {'CASE':<25} {'EXPS':<5} {'RUNS':<5} {'TRIALS':<6}")
-    click.echo("-" * 50)
+def load_case_original_toml(case: Case) -> dict | None:
+    """
+    Load a representative *_original.toml for a case.
+    Uses run_0/trials/0000 when available.
+    """
+    for exp in case.experiments:
+        for run in exp.runs:
+            for trial in run.trials:
+                p = next(trial.path.glob("*_original.toml"), None)
+                if p:
+                    try:
+                        return tomllib.load(p.open("rb"))
+                    except Exception:
+                        return None
+    return None
 
+
+def render_case_summary(cases: list[Case]):
+    # -------------------------
+    # Column widths
+    # -------------------------
+    w_id = 3
+    w_case = 20
+    w_exp = 5
+    w_run = 5
+    w_trial = 6
+    w_opt = 30
+    w_rates = 30
+
+    # -------------------------
+    # Header
+    # -------------------------
+    click.echo(
+        f"{'ID':<{w_id}} "
+        f"{'CASE':<{w_case}} "
+        f"{'EXPS':<{w_exp}} "
+        f"{'RUNS':<{w_run}} "
+        f"{'TRIALS':<{w_trial}} "
+        f"{'OPTIMIZATION':<{w_opt}} "
+        f"{'RATES':<{w_rates}}"
+    )
+
+    click.echo(
+        "-"
+        * (
+            w_id + w_case + w_exp + w_run + w_trial + w_opt + w_rates + 6  # spaces between columns
+        )
+    )
+
+    # -------------------------
+    # Rows
+    # -------------------------
     for i, case in enumerate(cases):
         exp_count = len(case.experiments)
         run_count = sum(len(e.runs) for e in case.experiments)
         trial_count = sum(len(r.trials) for e in case.experiments for r in e.runs)
 
-        click.echo(f"{i:<3} {case.name:<25} {exp_count:<5} {run_count:<5} {trial_count:<6}")
+        original = load_case_original_toml(case) or {}
+
+        opt_display = format_optimization_summary(original)
+        rates_display = format_rates_summary(original)
+
+        click.echo(
+            f"{i:<{w_id}} "
+            f"{case.name:<{w_case}} "
+            f"{exp_count:<{w_exp}} "
+            f"{run_count:<{w_run}} "
+            f"{trial_count:<{w_trial}} "
+            f"{opt_display:<{w_opt}} "
+            f"{rates_display:<{w_rates}}"
+        )
 
 
 def render_metrics(run_dir: Path):
@@ -262,13 +363,17 @@ def render_metrics(run_dir: Path):
 
 
 def render_case_breakdown(case: Case, diff_mode: str | None, value_mode: str):
-    click.echo(f"\nCase: {case.name}\n")
+    """Render case breakdown"""
+
+    render_case_summary([case])
+    click.echo("")
 
     # Column widths
     w_exp = 3
     w_id = 3
     w_run = 7
     w_trial = 6
+    w_yearly = 9
     w_net = 9
     w_beq = 9
 
@@ -278,12 +383,12 @@ def render_case_breakdown(case: Case, diff_mode: str | None, value_mode: str):
     header1 = (
         f"{'':>{w_exp}} {'':>{w_id}} "
         f"{'':<{w_run}} {'':<{w_trial}} "
-        f"{'NetSpend':>{w_net}} {'Bequest':>{w_beq}}   Overrides"
+        f"{'Per Year':>{w_yearly}} {'Total Net':>{w_net}} {'Bequest':>{w_beq}}"
     )
     header2 = (
-        f"{'EXP':>{w_exp}} {'ID':>{w_id}} "
+        f"{'ID':>{w_id}} {'EXP':>{w_exp}} "
         f"{'Run':<{w_run}} {'Trial':<{w_trial}} "
-        f"({value_mode} $K) ({value_mode} $K)"
+        f"({value_mode} $K) ({value_mode} $K) ({value_mode} $K)  Overrides"
     )
 
     click.echo(header1)
@@ -299,15 +404,17 @@ def render_case_breakdown(case: Case, diff_mode: str | None, value_mode: str):
             for trial in run.trials:
                 metrics = load_metrics(trial.path) or {}
 
+                yearly = format_k(metrics.get("net_spending_for_plan_year_0"))
                 net = format_k(metrics.get(f"total_net_spending_{value_mode}"))
                 beq = format_k(metrics.get(f"total_final_bequest_{value_mode}"))
                 overrides = ", ".join(run.overrides) if run.overrides else "—"
 
                 click.echo(
-                    f"{exp_id:>{w_exp}} "
                     f"{row_id:>{w_id}} "
+                    f"{exp_id:>{w_exp}} "
                     f"{run.name:<{w_run}} "
                     f"{trial.name:<{w_trial}} "
+                    f"{yearly:>{w_yearly}} "
                     f"{net:>{w_net}} "
                     f"{beq:>{w_beq}}   "
                     f"{overrides}"
@@ -356,3 +463,56 @@ def resolve_case(token: str, cases: list[Case]) -> Case:
         if c.name == token:
             return c
     raise click.ClickException(f"Case not found: {token}")
+
+
+def render_files(run_dir: Path):
+    """
+    List files in a trial directory.
+    """
+    if not run_dir.exists():
+        click.echo("(trial directory not found)")
+        return
+
+    files = sorted(p for p in run_dir.iterdir() if p.is_file())
+
+    if not files:
+        click.echo("(no files found)")
+        return
+
+    inputs: list[tuple[str, str]] = []
+    outputs: list[tuple[str, str]] = []
+    others: list[str] = []
+
+    for p in files:
+        kind, desc = describe_file(p.name)
+
+        if kind == "INPUT":
+            inputs.append((p.name, desc))
+        elif kind == "OUTPUT":
+            outputs.append((p.name, desc))
+        else:
+            others.append(p.name)
+
+    # Sort alphabetically within groups
+    inputs.sort()
+    outputs.sort()
+    others.sort()
+
+    # -------------------------
+    # Display
+    # -------------------------
+
+    if inputs:
+        click.echo("INPUT FILES:")
+        for name, desc in inputs:
+            click.echo(f"  {name:<35} [{desc}]")
+
+    if outputs:
+        click.echo("\nOUTPUT FILES:")
+        for name, desc in outputs:
+            click.echo(f"  {name:<35} [{desc}]")
+
+    if others:
+        click.echo("\nOTHER FILES:")
+        for name in others:
+            click.echo(f"  {name}")

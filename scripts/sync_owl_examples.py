@@ -48,7 +48,7 @@ def main() -> None:
         shutil.rmtree(TMP)
 
     print("Cloning OWL...")
-    run(["git", "clone", "--depth", "1", OWL_REPO, str(TMP)])
+    run(["git", "clone", "--no-checkout", OWL_REPO, str(TMP)])
 
     print(f"Checking out OWL commit {owl_commit}...")
     run(["git", "checkout", owl_commit], cwd=TMP)

@@ -7,9 +7,8 @@ from hydra.utils import to_absolute_path
 from loguru import logger
 from omegaconf import OmegaConf
 
-from owlroost.core.toml_utils import toml_plan_name
 from owlroost.core.owl_runner import run_single_case
-
+from owlroost.core.toml_utils import toml_plan_name
 
 # ---------------------------------------------------------------------
 # Project root handling
@@ -21,6 +20,7 @@ PROJECT_ROOT = Path.cwd().resolve()
 # ---------------------------------------------------------------------
 # Logging bootstrap (needed before Hydra main)
 # ---------------------------------------------------------------------
+
 
 def bootstrap_logging():
     """
@@ -37,6 +37,7 @@ def bootstrap_logging():
 # ---------------------------------------------------------------------
 # Hydra job helpers
 # ---------------------------------------------------------------------
+
 
 def get_job_id(hc: HydraConfig) -> str:
     """
@@ -65,6 +66,7 @@ def get_run_dir() -> Path:
 # Case file helpers
 # ---------------------------------------------------------------------
 
+
 def resolve_case_file(case_file: str | Path) -> Path:
     """
     Resolve and validate the case file path.
@@ -83,6 +85,7 @@ def resolve_case_file(case_file: str | Path) -> Path:
 # ---------------------------------------------------------------------
 # Hydra metadata persistence
 # ---------------------------------------------------------------------
+
 
 def save_hydra_metadata(
     *,
@@ -109,6 +112,7 @@ def save_hydra_metadata(
 # ---------------------------------------------------------------------
 # OmegaConf resolvers
 # ---------------------------------------------------------------------
+
 
 def register_resolvers():
     """
