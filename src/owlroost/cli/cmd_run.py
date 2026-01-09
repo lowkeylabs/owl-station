@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import tomllib
 from pathlib import Path
 
 import click
@@ -30,6 +31,43 @@ helper_groups = [
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
+
+
+def get_rate_selection_method(case_file: Path) -> str | None:
+    try:
+        with case_file.open("rb") as f:
+            data = tomllib.load(f)
+    except Exception as e:
+        raise click.ClickException(f"Failed to read case file {case_file}: {e}") from None
+
+    return data.get("rates_selection", {}).get("method")
+
+
+def validate_rate_method_for_trials(
+    *,
+    rate_method: str | None,
+    trials: int | None,
+    trial_id: int | None,
+):
+    requires_stochastic = (trials is not None and trials > 1) or (
+        trial_id is not None and trial_id != 0
+    )
+
+    if not requires_stochastic:
+        return
+
+    allowed = {"stochastic", "histocastic"}
+
+    if rate_method not in allowed:
+        raise click.ClickException(
+            "Invalid rate_selection.method for trial execution.\n\n"
+            # f"  trials={trials}, trial_id={trial_id}\n"
+            f"  Method found in case file: {rate_method!r}\n\n"
+            "When running multiple trials or a specific trial-id,\n"
+            "rate_selection.method must be one of:\n"
+            "  - stochastic\n"
+            "  - histocastic\n\n"
+        )
 
 
 def normalize_hydra_overrides(overrides: list[str]) -> list[str]:
@@ -226,6 +264,14 @@ def cmd_run(
     case_file = resolve_case_selector(case, indexed_files)
     if not case_file:
         raise click.BadParameter(f"No case matching '{case}'")
+
+    rate_method = get_rate_selection_method(case_file)
+
+    validate_rate_method_for_trials(
+        rate_method=rate_method,
+        trials=trials,
+        trial_id=trial_id,
+    )
 
     # Remaining args → Hydra overrides (verbatim pass-through)
     hydra_overrides = ctx.args

@@ -186,7 +186,7 @@ def main(cfg: DictConfig):
             trial_seqs = ss.spawn(trial_id + 1)
             trial_seed = int(trial_seqs[trial_id].generate_state(1)[0])
 
-            logger.warning(f"Seed: {trial_seed}  fits in unit32: {fits_uint32( trial_seed )}")
+            # logger.warning(f"Seed: {trial_seed}  fits in unit32: {fits_uint32( trial_seed )}")
 
         trial_args.append(
             (
