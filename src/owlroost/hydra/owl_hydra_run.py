@@ -30,6 +30,10 @@ bootstrap_logging()
 register_resolvers()
 
 
+def fits_uint32(n: int) -> bool:
+    return 0 <= n <= 0xFFFFFFFF
+
+
 def _extract_trial_override(overrides: dict, key: str, default: int | None = None):
     try:
         return int(overrides.get("trial", {}).get(key, default))
@@ -182,6 +186,8 @@ def main(cfg: DictConfig):
             trial_seqs = ss.spawn(trial_id + 1)
             trial_seed = int(trial_seqs[trial_id].generate_state(1)[0])
 
+            logger.warning(f"Seed: {trial_seed}  fits in unit32: {fits_uint32( trial_seed )}")
+
         trial_args.append(
             (
                 trial_id,
@@ -214,11 +220,12 @@ def main(cfg: DictConfig):
         trial_seqs = ss.spawn(n_trials)
 
         for i in range(n_trials):
-            seed = int(trial_seqs[i].generate_state(1)[0])
+            trial_seed = int(trial_seqs[i].generate_state(1)[0])
+            logger.warning(f"Seed: {trial_seed}  fits in unit32: {fits_uint32( trial_seed )}")
             trial_args.append(
                 (
                     i,
-                    seed,
+                    trial_seed,
                     case_file,
                     overrides,
                     run_dir,

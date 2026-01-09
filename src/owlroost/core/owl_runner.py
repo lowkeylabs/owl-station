@@ -36,11 +36,14 @@ class PlanRunResult:
 
 def coerce_override_value(v):
     if isinstance(v, str):
+        # Hydra escapes spaces as '\ '
+        v = v.replace("\\ ", " ")
+
         try:
-            parsed = ast.literal_eval(v)
-            return parsed
+            return ast.literal_eval(v)
         except (ValueError, SyntaxError):
             return v
+
     return v
 
 
@@ -66,6 +69,24 @@ def apply_fixed_income_overrides(diconf: dict, value: dict):
 
 
 def apply_rates_overrides(diconf: dict, value: dict):
+    logger.info(f"apply rates overrides: {value}")
+
+    # Defensive copy so we don’t mutate upstream state
+    value = dict(value)
+
+    # --- Handle fromto ------------------------------------
+    raw = value.pop("fromto", None)
+    if raw is not None:
+        fromto = coerce_override_value(raw)
+        # After coerce_override_value, fromto should be [from, to]
+        if not isinstance(fromto, (list | tuple)) or len(fromto) != 2:
+            raise ValueError(f"Invalid rates.fromto value: {fromto}")
+
+        frm, to = fromto
+        value["from"] = int(frm)
+        value["to"] = int(to)
+
+    # --- Pass remaining keys through generic handler ------
     apply_generic_overrides("rates_selection", diconf, value)
 
 
