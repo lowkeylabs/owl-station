@@ -19,6 +19,17 @@ from owlroost.cli.utils import format_optimization_summary, format_rates_summary
 RESULTS_DIR = Path("results")
 IGNORE_PREFIXES = ("Hydra", "hydra")
 
+W_ID = 3
+W_EXP = 4
+W_RUN = 7
+W_TRIAL = 6
+W_CASE = 20
+W_OPT = 30
+W_RATES = 30
+W_YEAR = 9
+W_NET = 9
+W_BEQ = 9
+
 # ---------------------------------------------------------------------
 # Data models
 # ---------------------------------------------------------------------
@@ -371,28 +382,26 @@ def render_divider():
 
 
 def render_case_summary(cases: list[Case]):
-    w_id, w_exp, w_run, w_trial, w_case, w_opt, w_rates = 3, 4, 5, 6, 20, 30, 30
-
     click.echo("CASE SUMMARY")
     render_divider()
     click.echo(
-        f"{'ID':>{w_id}} {'Exps':>{w_exp}} "
-        f"{'Runs':<{w_run}} {'Trials':>{w_trial}}  "
-        f"{'Case Name':<{w_case}} "
-        f"{'Optimization':<{w_opt}} {'Rates':<{w_rates}}"
+        f"{'ID':>{W_ID}} {'Exps':>{W_EXP}} "
+        f"{'Runs':<{W_RUN}} {'Trials':>{W_TRIAL}}  "
+        f"{'Case Name':<{W_CASE}} "
+        f"{'Optimization':<{W_OPT}} {'Rates':<{W_RATES}}"
     )
     render_divider()
 
     for i, case in enumerate(cases):
         orig = load_case_original_toml(case) or {}
         click.echo(
-            f"{i:>{w_id}} "
-            f"{len(case.experiments):>{w_exp}} "
-            f"{sum(len(e.runs) for e in case.experiments):<{w_run}} "
-            f"{sum(len(r.trials) for e in case.experiments for r in e.runs):>{w_trial}}  "
-            f"{case.name:<{w_case}} "
-            f"{format_optimization_summary(orig):<{w_opt}} "
-            f"{format_rates_summary(orig):<{w_rates}}"
+            f"{i:>{W_ID}} "
+            f"{len(case.experiments):>{W_EXP}} "
+            f"{sum(len(e.runs) for e in case.experiments):<{W_RUN}} "
+            f"{sum(len(r.trials) for e in case.experiments for r in e.runs):>{W_TRIAL}}  "
+            f"{case.name:<{W_CASE}} "
+            f"{format_optimization_summary(orig):<{W_OPT}} "
+            f"{format_rates_summary(orig):<{W_RATES}}"
         )
 
 
@@ -405,18 +414,16 @@ def render_run_summary(
     Render a summary of runs for a selected case.
     If selected_run is provided, show only that run.
     Averages numeric metrics across all trials in each run.
-    """
 
-    # -------------------------
-    # Column widths
-    # -------------------------
-    w_id = 3
-    w_exp = 4
-    w_run = 5
-    w_trial = 6
-    w_y = 9
-    w_n = 9
-    w_b = 9
+    Sorting rules:
+      1. Determine an effective objective per run:
+         - If overrides contain maxBequest or maxSpending → use that
+         - Otherwise use case.optimization.objective
+      2. Group rows by effective objective:
+         - maxBequest first, sorted by bequest DESC
+         - maxSpending next, sorted by net spending DESC
+         - everything else last, stable order
+    """
 
     # -------------------------
     # Header
@@ -425,35 +432,36 @@ def render_run_summary(
     click.echo("RUN SUMMARY")
     render_divider()
     click.echo(
-        f"{'':>{w_id}} "
-        f"{'':>{w_exp}} "
-        f"{'':<{w_run}} "
-        f"{'':>{w_trial}} "
-        f"{'Net/Yr':>{w_y}} "
-        f"{'Total Net':>{w_n}} "
-        f"{'Bequest':>{w_b}} "
+        f"{'':>{W_ID}} "
+        f"{'':>{W_EXP}} "
+        f"{'':<{W_RUN}} "
+        f"{'':>{W_TRIAL}} "
+        f"{'Net/Yr':>{W_YEAR}} "
+        f"{'Total Net':>{W_NET}} "
+        f"{'Bequest':>{W_BEQ}} "
         f""
     )
     value_display = f"({value_mode} $K)"
     click.echo(
-        f"{'ID':>{w_id}} {'Exp':>{w_exp}} {'Run':<{w_run}} {'Trials':>{w_trial}} "
-        f"{value_display:>{w_y}} {value_display:>{w_n}} {value_display:>{w_b}}   Overrides"
+        f"{'ID':>{W_ID}} {'Exp':>{W_EXP}} {'Run':<{W_RUN}} {'Trials':>{W_TRIAL}} "
+        f"{value_display:>{W_YEAR}} {value_display:>{W_NET}} {value_display:>{W_BEQ}}   Overrides"
     )
     render_divider()
 
     # -------------------------
-    # Rows
+    # Collect rows (no output)
     # -------------------------
+    rows = []
     run_id = 0
+    case_toml = load_case_original_toml(case)
+    case_objective = case_toml.get("optimization_parameters", {}).get("objective", "maxBequest")
+
     for exp_id, exp in enumerate(case.experiments):
         for run in exp.runs:
             if selected_run is not None and run is not selected_run:
                 run_id += 1
                 continue
 
-            # -------------------------
-            # Aggregate metrics
-            # -------------------------
             yearly_vals = []
             net_vals = []
             beq_vals = []
@@ -473,24 +481,64 @@ def render_run_summary(
             def avg(vals):
                 return sum(vals) / len(vals) if vals else None
 
-            yearly = format_k(avg(yearly_vals))
-            net = format_k(avg(net_vals))
-            beq = format_k(avg(beq_vals))
+            yearly_avg = avg(yearly_vals)
+            net_avg = avg(net_vals)
+            beq_avg = avg(beq_vals)
 
-            overrides = normalize_overrides_for_display(run.overrides)
+            overrides = run.overrides or []
 
-            click.echo(
-                f"{run_id:>{w_id}} "
-                f"{exp_id:>{w_exp}} "
-                f"{run.name:<{w_run}} "
-                f"{len(run.trials):>{w_trial}} "
-                f"{yearly:>{w_y}} "
-                f"{net:>{w_n}} "
-                f"{beq:>{w_b}}   "
-                f"{overrides}"
+            if any("maxBequest" in o for o in overrides):
+                effective_objective = "maxBequest"
+            elif any("maxSpending" in o for o in overrides):
+                effective_objective = "maxSpending"
+            else:
+                effective_objective = case_objective
+
+            rows.append(
+                {
+                    "run_id": run_id,
+                    "exp_id": exp_id,
+                    "run": run,
+                    "trials": len(run.trials),
+                    "yearly": yearly_avg,
+                    "net": net_avg,
+                    "beq": beq_avg,
+                    "objective": effective_objective,
+                    "overrides": normalize_overrides_for_display(run.overrides),
+                }
             )
 
             run_id += 1
+
+    # -------------------------
+    # Sorting
+    # -------------------------
+    def sort_key(row):
+        obj = row["objective"]
+
+        if obj == "maxBequest":
+            return (0, -(row["beq"] or float("-inf")))
+        if obj == "maxSpending":
+            return (1, -(row["net"] or float("-inf")))
+
+        return (2, row["run_id"])  # stable fallback
+
+    rows.sort(key=sort_key)
+
+    # -------------------------
+    # Render rows
+    # -------------------------
+    for row in rows:
+        click.echo(
+            f"{row['run_id']:>{W_ID}} "
+            f"{row['exp_id']:>{W_EXP}} "
+            f"{row['run'].name:<{W_RUN}} "
+            f"{row['trials']:>{W_TRIAL}} "
+            f"{format_k(row['yearly']):>{W_YEAR}} "
+            f"{format_k(row['net']):>{W_NET}} "
+            f"{format_k(row['beq']):>{W_BEQ}}   "
+            f"{row['overrides']}"
+        )
 
 
 def render_run_trials(
@@ -503,23 +551,21 @@ def render_run_trials(
     click.echo("")
     click.echo("TRIAL SUMMARY")
 
-    w_id, w_exp, w_run, w_trial, w_y, w_n, w_b = 3, 4, 5, 6, 9, 9, 9
-
     render_divider()
     click.echo(
-        f"{'':>{w_id}} "
-        f"{'':>{w_exp}} "
-        f"{'':<{w_run}} "
-        f"{'':>{w_trial}} "
-        f"{'Net/Yr':>{w_y}} "
-        f"{'Total Net':>{w_n}} "
-        f"{'Bequest':>{w_b}} "
+        f"{'':>{W_ID}} "
+        f"{'':>{W_EXP}} "
+        f"{'':<{W_RUN}} "
+        f"{'':>{W_TRIAL}} "
+        f"{'Net/Yr':>{W_YEAR}} "
+        f"{'Total Net':>{W_NET}} "
+        f"{'Bequest':>{W_BEQ}} "
         f""
     )
     value_display = f"({value_mode} $K)"
     click.echo(
-        f"{'ID':>{w_id}} {'Exp':>{w_exp}} {'Run':<{w_run}} {'Trials':>{w_trial}} "
-        f"{value_display:>{w_y}} {value_display:>{w_n}} {value_display:>{w_b}}   Overrides"
+        f"{'ID':>{W_ID}} {'Exp':>{W_EXP}} {'Run':<{W_RUN}} {'Trials':>{W_TRIAL}} "
+        f"{value_display:>{W_YEAR}} {value_display:>{W_NET}} {value_display:>{W_BEQ}}   Overrides"
     )
     render_divider()
 
@@ -531,10 +577,10 @@ def render_run_trials(
         m = load_metrics(t.path) or {}
 
         click.echo(
-            f"{i:>{w_id}} {exp_id:>{w_exp}} {run.name:<{w_run}} {t.name:>{w_trial}} "
-            f"{format_k(m.get('net_spending_for_plan_year_0')):>{w_y}} "
-            f"{format_k(m.get(f'total_net_spending_{value_mode}')):>{w_n}} "
-            f"{format_k(m.get(f'total_final_bequest_{value_mode}')):>{w_b}}   "
+            f"{i:>{W_ID}} {exp_id:>{W_EXP}} {run.name:<{W_RUN}} {t.name:>{W_TRIAL}} "
+            f"{format_k(m.get('net_spending_for_plan_year_0')):>{W_YEAR}} "
+            f"{format_k(m.get(f'total_net_spending_{value_mode}')):>{W_NET}} "
+            f"{format_k(m.get(f'total_final_bequest_{value_mode}')):>{W_BEQ}}   "
             f"{normalize_overrides_for_display(run.overrides)}"
         )
 

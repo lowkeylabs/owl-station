@@ -2,6 +2,7 @@
 
 import subprocess
 import sys
+import time
 import tomllib
 from pathlib import Path
 
@@ -31,6 +32,26 @@ helper_groups = [
 # ---------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------
+
+
+def format_elapsed(seconds: float) -> str:
+    """
+    Format elapsed time smartly:
+      < 2 minutes   → seconds (e.g. 37.2s)
+      < 60 minutes  → M:SS (e.g. 12:04)
+      >= 60 minutes → H:MM:SS (e.g. 1:02:19)
+    """
+    if seconds < 120:
+        return f"{seconds:.1f}s"
+
+    total_seconds = int(round(seconds))
+    minutes, sec = divmod(total_seconds, 60)
+
+    if minutes < 60:
+        return f"{minutes:d}:{sec:02d}"
+
+    hours, minutes = divmod(minutes, 60)
+    return f"{hours:d}:{minutes:02d}:{sec:02d}"
 
 
 def get_rate_selection_method(case_file: Path) -> str | None:
@@ -298,10 +319,17 @@ def cmd_run(
     logger.debug("  {}", " ".join(cmd))
 
     # Execute
+    start = time.perf_counter()
+
     try:
         subprocess.run(cmd, check=True)
     except subprocess.CalledProcessError as e:
+        elapsed = time.perf_counter() - start
+        logger.info("Hydra failed after {}", format_elapsed(elapsed))
         raise click.ClickException(f"Hydra run failed (exit {e.returncode})") from None
+    else:
+        elapsed = time.perf_counter() - start
+        logger.info("Hydra completed successfully in {}", format_elapsed(elapsed))
 
 
 cmd_run.get_help = lambda ctx: build_run_help(cmd_run)

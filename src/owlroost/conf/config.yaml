@@ -31,4 +31,4 @@ hydra:
     chdir: true
     name: run
   launcher:
-    n_jobs: 1
+    n_jobs: 4
