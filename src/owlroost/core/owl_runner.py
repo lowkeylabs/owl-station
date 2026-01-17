@@ -69,7 +69,7 @@ def apply_fixed_income_overrides(diconf: dict, value: dict):
 
 
 def apply_rates_overrides(diconf: dict, value: dict):
-    logger.info(f"apply rates overrides: {value}")
+    logger.debug(f"apply rates overrides: {value}")
 
     # Defensive copy so we don’t mutate upstream state
     value = dict(value)
@@ -203,11 +203,10 @@ def json_safe(obj):
     raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
 
-def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: str) -> None:
+def save_early_files(output_file: str, effective_toml: str, original_toml: str) -> None:
     """
-    Solve the plan and write output.
+    Save TOML files early, for inspection in case of errors
     """
-    normalize_optimization(plan)
 
     output_path = Path(output_file)
 
@@ -222,6 +221,15 @@ def solve_and_save(plan, output_file: str, effective_toml: str, original_toml: s
     )
     with open(effective_toml_path, "w", encoding="utf-8") as f:
         f.write(effective_toml)
+
+
+def solve_and_save(plan, output_file: str) -> None:
+    """
+    Solve the plan and write output.
+    """
+    normalize_optimization(plan)
+
+    output_path = Path(output_file)
 
     # save rates
     rates_dict = {
@@ -317,15 +325,23 @@ def run_single_case(
     toml_buf = StringIO(modified_toml)
     toml_buf.seek(0)
 
+    save_early_files(output_file, modified_toml, original_toml)
+
+    logger.debug("Loading TOML config")
     plan = owl.readConfig(
         toml_buf,
         logstreams="loguru",
         readContributions=False,
     )
     if hfp_file:
+        logger.debug("Loading HFP file")
         plan.readContributions(str(hfp_modified))
 
-    solve_and_save(plan, output_file, modified_toml, original_toml)
+    logger.debug("Calling solve_and_save")
+    solve_and_save(plan, output_file)
+
+    status_file = Path(trial_path) / plan.caseStatus.upper()
+    status_file.touch(exist_ok=True)
 
     if plan.caseStatus != "solved":
         return PlanRunResult(status=plan.caseStatus)

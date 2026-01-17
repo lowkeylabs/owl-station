@@ -1,12 +1,16 @@
 from __future__ import annotations
 
 import json
+import os
+import subprocess
+import sys
 import tomllib
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Literal
 
 import click
+import tomlkit
 import yaml
 from loguru import logger
 
@@ -85,6 +89,13 @@ FILE_DESCRIPTORS = [
 ]
 
 
+def relpath(p: Path) -> Path:
+    try:
+        return p.relative_to(Path.cwd())
+    except ValueError:
+        return p
+
+
 def describe_file(name: str) -> tuple[str | None, str | None]:
     for d in FILE_DESCRIPTORS:
         if name.endswith(d.suffix):
@@ -105,6 +116,45 @@ def strip_override_prefix(override: str) -> str:
     return override.split(".", 1)[1] if "." in override else override
 
 
+def _wsl_to_windows_path(path: Path) -> str:
+    """Convert a WSL path to a Windows path using wslpath."""
+    result = subprocess.run(
+        ["wslpath", "-w", str(path)],
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+    if result.returncode != 0:
+        raise click.ClickException(f"Failed to convert path for Explorer: {path}")
+    return result.stdout.strip()
+
+
+def open_in_file_explorer(path: Path):
+    if not path.exists():
+        raise click.ClickException(f"Path does not exist: {path}")
+
+    path = path.resolve()
+
+    # ---- WSL detection ----
+    if "microsoft" in os.uname().release.lower():
+        win_path = _wsl_to_windows_path(path)
+        subprocess.run(["explorer.exe", win_path], check=False)
+        return
+
+    # ---- Native Windows ----
+    if sys.platform.startswith("win"):
+        os.startfile(path)  # type: ignore[attr-defined]
+        return
+
+    # ---- macOS ----
+    if sys.platform == "darwin":
+        subprocess.run(["open", path], check=False)
+        return
+
+    # ---- Native Linux ----
+    subprocess.run(["xdg-open", path], check=False)
+
+
 # ---------------------------------------------------------------------
 # CLI entry point
 # ---------------------------------------------------------------------
@@ -123,6 +173,17 @@ def strip_override_prefix(override: str) -> str:
 @click.option("--nominal", is_flag=True)
 @click.option("--files", is_flag=True)
 @click.option("--delete", help="Comma-separated list of IDs to delete")
+@click.option(
+    "--clone",
+    metavar="TAG",
+    help="Clone the effective TOML from the selected trial into the project directory "
+    "using TAG as a suffix (e.g. _ext1.toml)",
+)
+@click.option(
+    "--open-folder",
+    is_flag=True,
+    help="Open the selected trial directory in the system file explorer",
+)
 def cmd_results(
     case,
     run_id,
@@ -136,6 +197,8 @@ def cmd_results(
     nominal,
     files,
     delete,
+    clone,
+    open_folder,
 ):
     if diff and diff_project:
         raise click.ClickException("Use only one diff mode")
@@ -212,14 +275,15 @@ def cmd_results(
     # -------------------------------------------------
     # TRIAL TABLE (case + run_id, no trial_id)
     # -------------------------------------------------
-    if trial_id is None and len(trials) > 1:
-        exp_id = next(i for i, e in enumerate(selected.experiments) if run in e.runs)
-        render_case_summary([selected])
-        render_run_summary(selected, value_mode, selected_run=run)
-        render_run_trials(selected, run, exp_id, value_mode)
-        return
-    else:
-        trial_id = 0
+    if trial_id is None:
+        if len(trials) > 1:
+            exp_id = next(i for i, e in enumerate(selected.experiments) if run in e.runs)
+            render_case_summary([selected])
+            render_run_summary(selected, value_mode, selected_run=run)
+            render_run_trials(selected, run, exp_id, value_mode)
+            return
+        else:
+            trial_id = 0
 
     # -------------------------------------------------
     # SINGLE TRIAL DETAIL (case + run_id + trial_id)
@@ -228,6 +292,21 @@ def cmd_results(
         raise click.ClickException("Invalid trial ID")
 
     trial = trials[trial_id]
+
+    # --diff: original vs effective
+    if diff:
+        render_diff(trial.path)
+        return
+
+    # create clone of trial file
+    if clone:
+        clone_effective_toml(trial.path, clone)
+        return
+
+    # --open-folder is only valid at trial level
+    if open_folder:
+        open_in_file_explorer(trial.path)
+        return
 
     # Context headers (lightweight, consistent)
 
@@ -669,6 +748,31 @@ def render_files(run_dir: Path):
             click.echo(f"  {name}")
 
 
+def render_diff(trial_dir: Path):
+    orig = next(trial_dir.glob("*_original.toml"), None)
+    eff = next(trial_dir.glob("*_effective.toml"), None)
+
+    if not orig or not eff:
+        click.echo("(original or effective TOML not found)")
+        return
+
+    a = tomllib.load(orig.open("rb"))
+    b = tomllib.load(eff.open("rb"))
+
+    diffs = diff_dicts(a, b)
+
+    click.echo("")
+    click.echo("DIFF (original → effective)")
+    render_divider()
+
+    if not diffs:
+        click.echo("No differences.")
+        return
+
+    for line in diffs:
+        click.echo(line)
+
+
 def render_single_trial_summary(
     case: Case,
     run: Run,
@@ -703,3 +807,96 @@ def render_single_trial_summary(
     render_divider()
 
     render_metrics(trial.path)
+
+
+def clone_effective_toml(trial_dir: Path, tag: str):
+    """
+    Clone *_effective.toml and *_effective.xlsx from a trial directory into the
+    project directory, appending _<tag> to the basename, and update
+    HFP_file_name in the cloned TOML to point to the new XLSX.
+    """
+    # -------------------------
+    # Locate source files
+    # -------------------------
+    src_toml = next(trial_dir.glob("*_effective.toml"), None)
+    if not src_toml:
+        raise click.ClickException("No effective TOML found to clone")
+
+    src_xlsx = next(trial_dir.glob("*_effective.xlsx"), None)
+    if not src_xlsx:
+        raise click.ClickException("No effective XLSX found to clone")
+
+    if not tag.isidentifier():
+        raise click.ClickException(
+            "Clone tag must be a valid identifier (letters, numbers, underscores)"
+        )
+
+    # -------------------------
+    # Construct destination names
+    # -------------------------
+    base = src_toml.name.replace("_effective.toml", "")
+    dest_dir = Path.cwd()
+
+    dest_toml = dest_dir / f"{base}_{tag}.toml"
+    dest_xlsx = dest_dir / f"{base}_{tag}.xlsx"
+
+    if dest_toml.exists():
+        raise click.ClickException(f"Target TOML already exists: {dest_toml.name}")
+    if dest_xlsx.exists():
+        raise click.ClickException(f"Target XLSX already exists: {dest_xlsx.name}")
+
+    # -------------------------
+    # Copy XLSX first
+    # -------------------------
+    dest_xlsx.write_bytes(src_xlsx.read_bytes())
+
+    # -------------------------
+    # Load + modify TOML
+    # -------------------------
+    doc = tomlkit.parse(src_toml.read_text(encoding="utf-8"))
+
+    hfp = doc.get("household_financial_profile")
+    if not isinstance(hfp, dict):
+        raise click.ClickException("TOML missing [household_financial_profile] section")
+
+    if "HFP_file_name" not in hfp:
+        raise click.ClickException("TOML missing household_financial_profile.HFP_file_name")
+
+    hfp["HFP_file_name"] = dest_xlsx.name
+
+    # -------------------------
+    # Write TOML
+    # -------------------------
+    dest_toml.write_text(tomlkit.dumps(doc), encoding="utf-8")
+
+    click.echo(f"Cloned effective TOML → {relpath(dest_toml)}")
+    click.echo(f"Cloned effective XLSX → {relpath(dest_xlsx)}")
+
+
+def diff_dicts(a: dict, b: dict, prefix: str = "") -> list[str]:
+    """
+    Recursively diff two dictionaries.
+    Returns a list of human-readable diff lines.
+    """
+    diffs: list[str] = []
+
+    a_keys = set(a.keys())
+    b_keys = set(b.keys())
+
+    for key in sorted(a_keys - b_keys):
+        diffs.append(f"- {prefix}{key} (removed)")
+
+    for key in sorted(b_keys - a_keys):
+        diffs.append(f"+ {prefix}{key} = {b[key]!r}")
+
+    for key in sorted(a_keys & b_keys):
+        av = a[key]
+        bv = b[key]
+        path = f"{prefix}{key}"
+
+        if isinstance(av, dict) and isinstance(bv, dict):
+            diffs.extend(diff_dicts(av, bv, prefix=f"{path}."))
+        elif av != bv:
+            diffs.append(f"~ {path}: {av!r} → {bv!r}")
+
+    return diffs

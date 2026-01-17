@@ -1,12 +1,13 @@
-case_name = "kim+sam-spending"
-description = "This is the case of Kim and Sam used as an example case for optimizing spending and Roth conversions. An HFP file is associated with this case."
+case_name = "kim+sam-bequest"
+description = "This is the case of Kim and Sam used as an example case for optimizing bequest and Roth conversions. A HFP file is associated with this case."
 
 [basic_info]
 status = "married"
 names = [ "Kim", "Sam",]
 date_of_birth = [ "1964-01-15", "1965-01-15",]
-life_expectancy = [ 89, 93,]
+life_expectancy = [ 91, 93,]
 start_date = "2026-01-01"
+longevity_seed = 2004324345
 
 [savings_assets]
 taxable_savings_balances = [ 650.0, 250.0,]
@@ -16,7 +17,7 @@ beneficiary_fractions = [ 1.0, 1.0, 1.0,]
 spousal_surplus_deposit_fraction = 0.5
 
 [household_financial_profile]
-HFP_file_name = "HFP_kim+sam.xlsx"
+HFP_file_name = "Case_kim+sam-bequest_test2.xlsx"
 
 [fixed_income]
 pension_monthly_amounts = [ 0, 0,]
@@ -29,10 +30,12 @@ social_security_ages = [ 70.0, 68.0,]
 heirs_rate_on_tax_deferred_estate = 33.0
 dividend_rate = 1.75
 obbba_expiration_year = 2032
-method = "user"
-values = [ 6.0, 4.0, 3.3000000000000003, 2.8000000000000003,]
-from = 1928
-to = 2024
+method = "stochastic"
+rate_seed = 2071076078
+reproducible_rates = true
+values = [ 12.53848, 10.00455, 8.39939, 5.0303,]
+standard_deviations = [ 16.61002, 8.40866, 10.07218, 3.21505,]
+correlations = [ [ 1.0, 0.46741, 0.3249, -0.28302,], [ 0.46741, 1.0, 0.84423, -0.55967,], [ 0.3249, 0.84423, 1.0, -0.38111,], [ -0.28302, -0.55967, -0.38111, 1.0,],]
 
 [asset_allocation]
 interpolation_method = "s-curve"
@@ -47,14 +50,14 @@ surviving_spouse_spending_percent = 60
 smile_dip = 15
 smile_increase = 12
 smile_delay = 0
-objective = "maxSpending"
+objective = "maxBequest"
 
 [solver_options]
+netSpending = 145
 maxRothConversion = 100
 noRothConversions = "None"
 startRothConversions = 2026
 withMedicare = "optimize"
-bequest = 0
 solver = "HiGHS"
 spendingSlack = 0
 xorConstraints = true

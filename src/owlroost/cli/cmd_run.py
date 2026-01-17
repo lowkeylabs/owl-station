@@ -77,7 +77,7 @@ def validate_rate_method_for_trials(
     if not requires_stochastic:
         return
 
-    allowed = {"stochastic", "histocastic"}
+    allowed = {"stochastic", "histochastic"}
 
     if rate_method not in allowed:
         raise click.ClickException(

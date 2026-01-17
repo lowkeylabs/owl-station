@@ -1,17 +1,20 @@
 # src/owlroost/hydra/owl_hydra_run.py
+
+import time
 from multiprocessing import Pool
-from pathlib import Path
 
 import hydra
 import numpy as np
 from hydra.core.hydra_config import HydraConfig
 from loguru import logger
-from omegaconf import DictConfig, OmegaConf
+from omegaconf import DictConfig
+from tqdm import tqdm
 
 from owlroost.cli.utils import normalize_case_file_overrides
 from owlroost.core.configure_logging import configure_logging
+
+# Longevity (GM model)
 from owlroost.core.override_parser import hydra_overrides_to_dict
-from owlroost.core.owl_runner import run_single_case
 from owlroost.hydra.helpers import (
     PROJECT_ROOT,
     bootstrap_logging,
@@ -21,11 +24,11 @@ from owlroost.hydra.helpers import (
     resolve_case_file,
     save_hydra_metadata,
 )
+from owlroost.hydra.trial_worker import run_trial
 
 # ---------------------------------------------------------------------
-# Bootstrap (must run before Hydra)
+# Bootstrap (must run before Hydra initializes)
 # ---------------------------------------------------------------------
-
 bootstrap_logging()
 register_resolvers()
 
@@ -35,117 +38,42 @@ def fits_uint32(n: int) -> bool:
 
 
 def _extract_trial_override(overrides: dict, key: str, default: int | None = None):
+    """Extract integer overrides from CLI parsed dict structure."""
     try:
         return int(overrides.get("trial", {}).get(key, default))
     except Exception:
         return default
 
 
-def _run_trial(
-    trial_id: int,
-    trial_seed: int | None,
-    case_file: Path,
-    base_overrides: dict,
-    run_dir: Path,
-):
-    """
-    Execute a single trial in its own directory.
-    """
-    trial_dir = run_dir / "trials" / f"{trial_id:04d}"
-    trial_dir.mkdir(parents=True, exist_ok=True)
-
-    output_file = trial_dir / f"{case_file.stem}.xlsx"
-
-    overrides = dict(base_overrides)
-    if trial_seed is not None:
-        overrides.setdefault("rates", {})["rate_seed"] = trial_seed
-
-    logger.info(
-        "Trial {:04d} | seed={} | dir={}",
-        trial_id,
-        trial_seed if trial_seed is not None else "fromTOML",
-        trial_dir.relative_to(run_dir),
-    )
-
-    result = run_single_case(
-        case_file=str(case_file),
-        overrides=overrides,
-        output_file=str(output_file),
-    )
-
-    return {
-        "trial_id": trial_id,
-        "seed": trial_seed,
-        "status": result.status,
-        "output": str(output_file) if result.status == "solved" else None,
-    }
-
-
-@hydra.main(
-    config_path="conf",
-    config_name="config",
-    version_base=None,
-)
+# ---------------------------------------------------------------------
+# MAIN HYDRA ENTRYPOINT
+# ---------------------------------------------------------------------
+@hydra.main(config_path="conf", config_name="config", version_base=None)
 def main(cfg: DictConfig):
-    """
-    Pure Hydra runner for OWL scenarios.
-
-    - Uses ./conf from the *current working directory*
-    - Supports single runs and multiruns (-m)
-    - Produces one output workbook per scenario
-    - Supports internal trial replication with multiprocessing
-    """
-
-    # -------------------------------------------------
+    # -----------------------------------------
     # Validate required inputs
-    # -------------------------------------------------
+    # -----------------------------------------
     if not hasattr(cfg, "case") or not hasattr(cfg.case, "file"):
         raise RuntimeError("Hydra config must define case.file")
 
     case_file = resolve_case_file(cfg.case.file)
-    logger.debug(case_file)
 
-    # -------------------------------------------------
-    # Configure Loguru from Hydra config
-    # -------------------------------------------------
+    # Configure logging per Hydra
     configure_logging(cfg)
 
-    # -------------------------------------------------
-    # Hydra runtime info (SAFE for single + multirun)
-    # -------------------------------------------------
+    # Hydra runtime and overrides
     hc = HydraConfig.get()
     raw_overrides = hc.overrides.task
     job_id = get_job_id(hc)
 
-    if 0:
-        hc_dict = OmegaConf.to_container(hc, resolve=True)
-        logger.trace("HydraConfig dump:\n{}", OmegaConf.to_yaml(hc_dict))
-
-    # -------------------------------------------------
-    # Parse semantic overrides
-    # -------------------------------------------------
     overrides = hydra_overrides_to_dict(raw_overrides)
     clean_overrides = normalize_case_file_overrides(raw_overrides)
 
-    logger.info(
-        "{} - overrides: {}",
-        job_id,
-        " ".join(clean_overrides),
-    )
+    logger.debug("{} - overrides: {}", job_id, " ".join(clean_overrides))
 
-    # -------------------------------------------------
-    # Hydra-managed run directory
-    # -------------------------------------------------
     run_dir = get_run_dir()
-    logger.info(
-        "{} - Run directory: {}",
-        job_id,
-        run_dir.relative_to(PROJECT_ROOT),
-    )
+    logger.debug("{} - Run directory: {}", job_id, run_dir.relative_to(PROJECT_ROOT))
 
-    # -------------------------------------------------
-    # Save Hydra metadata
-    # -------------------------------------------------
     save_hydra_metadata(
         run_dir=run_dir,
         mode=hc.mode,
@@ -153,113 +81,135 @@ def main(cfg: DictConfig):
         overrides=raw_overrides,
     )
 
-    # -------------------------------------------------
+    # -----------------------------------------
     # Trial configuration
-    # -------------------------------------------------
-
+    # -----------------------------------------
     trial_cfg = cfg.trial
     n_jobs = int(trial_cfg.n_jobs)
 
-    # Extract semantic trial controls from overrides (NOT cfg)
     trial_id_override = _extract_trial_override(overrides, "id")
-    trial_count_override = _extract_trial_override(
-        overrides,
-        "count",
-        default=int(trial_cfg.count),
-    )
+    trial_count_override = _extract_trial_override(overrides, "count", default=int(trial_cfg.count))
 
     use_trial_seeds = trial_id_override is not None or trial_count_override > 1
 
+    # MASTER seed for all trial seeds
     master_seed = 12345
+    master_ss = np.random.SeedSequence(master_seed)
 
-    ss = np.random.SeedSequence(master_seed)
     trial_args = []
 
-    # -------------------------------------------------
-    # Single explicit trial (--trial-id)
-    # -------------------------------------------------
+    # ============================================================
+    # CASE 1 — single explicit trial: --trial-id=N
+    # ============================================================
     if trial_id_override is not None:
-        trial_id = trial_id_override
+        tid = trial_id_override
 
-        trial_seed = None
+        rates_seed = None
+        longevity_seed = None
+
         if use_trial_seeds:
-            trial_seqs = ss.spawn(trial_id + 1)
-            trial_seed = int(trial_seqs[trial_id].generate_state(1)[0])
+            # Spawn (tid + 1) sequences since we need index tid
+            seqs = master_ss.spawn(tid + 1)
+            trial_ss = seqs[tid]
 
-            # logger.warning(f"Seed: {trial_seed}  fits in unit32: {fits_uint32( trial_seed )}")
+            rs, ls = trial_ss.spawn(2)
+            rates_seed = int(rs.generate_state(1)[0])
+            longevity_seed = int(ls.generate_state(1)[0])
 
-        trial_args.append(
-            (
-                trial_id,
-                trial_seed,
-                case_file,
-                overrides,
-                run_dir,
-            )
-        )
-
+        trial_args.append((job_id, tid, rates_seed, longevity_seed, case_file, overrides, run_dir))
         n_trials = 1
 
+    # ============================================================
+    # CASE 2 — single non-seeded run (no trial overrides)
+    # ============================================================
     elif trial_count_override == 1:
-        trial_args.append(
-            (
-                0,
-                None,  # ← no seed override
-                case_file,
-                overrides,
-                run_dir,
-            )
-        )
+        trial_args.append((job_id, 0, None, None, case_file, overrides, run_dir))
         n_trials = 1
 
-    # -------------------------------------------------
-    # Normal multi-trial execution
-    # -------------------------------------------------
+    # ============================================================
+    # CASE 3 — normal multi-trial execution
+    # ============================================================
     else:
         n_trials = trial_count_override
-        trial_seqs = ss.spawn(n_trials)
 
-        for i in range(n_trials):
-            trial_seed = int(trial_seqs[i].generate_state(1)[0])
-            logger.warning(f"Seed: {trial_seed}  fits in unit32: {fits_uint32( trial_seed )}")
+        # Spawn all trial seeds at once
+        trial_seqs = master_ss.spawn(n_trials)
+
+        for tid in range(n_trials):
+            trial_ss = trial_seqs[tid]
+
+            # spawn two independent seeds: rates + longevity
+            rs, ls = trial_ss.spawn(2)
+
+            rates_seed = int(rs.generate_state(1)[0])
+            longevity_seed = int(ls.generate_state(1)[0])
+
+            logger.debug(f"Trial {tid:04d} seeds: rates={rates_seed}, longevity={longevity_seed}")
+
             trial_args.append(
-                (
-                    i,
-                    trial_seed,
-                    case_file,
-                    overrides,
-                    run_dir,
-                )
+                (job_id, tid, rates_seed, longevity_seed, case_file, overrides, run_dir)
             )
 
-    logger.info(
-        "{} - Launching {} trials (n_jobs={})",
-        job_id,
-        n_trials,
-        n_jobs,
-    )
+    logger.debug("{} - Launching {} trials (n_jobs={})", job_id, n_trials, n_jobs)
 
-    # -------------------------------------------------
-    # Run trials (parallel)
-    # -------------------------------------------------
+    # -------------------------------------------------------------
+    # Run trials (parallel if needed)
+    # -------------------------------------------------------------
+
+    results = []
+    completed = 0
+
+    HEARTBEAT_SEC = 1
+    last_update = time.monotonic()
+
+    def _on_trial_done(result):
+        results.append(result)
+
     if n_trials == 1:
-        results = [_run_trial(*trial_args[0])]
+        results = [run_trial(*trial_args[0])]
     else:
         with Pool(processes=n_jobs) as pool:
-            results = pool.starmap(_run_trial, trial_args)
+            async_results = [
+                pool.apply_async(run_trial, args, callback=_on_trial_done) for args in trial_args
+            ]
+            async_results = async_results
 
-    # -------------------------------------------------
+            with tqdm(
+                total=n_trials,
+                desc=f"{job_id}",
+                unit="trial",
+                dynamic_ncols=True,
+                bar_format="{desc}: {percentage:.1f}% |{bar}| {postfix}",
+                # bar_format="{desc}: {percentage}% |{bar}| {n_fmt}/{total_fmt} [{elapsed}<{remaining}, {rate_fmt}] {postfix}",
+            ) as pbar:
+                while completed < n_trials:
+                    newly_completed = len(results) - completed
+
+                    if newly_completed:
+                        completed += newly_completed
+                        pbar.update(newly_completed)
+
+                    # Heartbeat (continuous s/trial)
+                    now = time.monotonic()
+                    if now - last_update >= HEARTBEAT_SEC:
+                        elapsed = pbar.format_dict["elapsed"] or 0.0
+                        spt = elapsed / max(completed, 1)
+
+                        pbar.set_postfix_str(
+                            f"elapsed={elapsed:.1f}s, running={completed}/{n_trials}, s_per_trial={spt:.1f}s"
+                        )
+                        pbar.refresh()
+                        last_update = now
+
+                    time.sleep(0.2)
+
+    # -------------------------------------------------------------
     # Summary
-    # -------------------------------------------------
+    # -------------------------------------------------------------
     solved = [r for r in results if r["status"] == "solved"]
     failed = [r for r in results if r["status"] != "solved"]
 
-    logger.info(
-        "{} - Trials complete: {} solved, {} failed",
-        job_id,
-        len(solved),
-        len(failed),
-    )
+    logger.info("{} - Trials complete: {} solved, {} failed", job_id, len(solved), len(failed))
 
     if failed:
         logger.warning(

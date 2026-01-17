@@ -5,7 +5,7 @@ description = "This is an example of a case involving a single individual. Joe i
 status = "single"
 names = [ "Joe",]
 date_of_birth = [ "1967-01-15",]
-life_expectancy = [ 89,]
+life_expectancy = [ 106,]
 start_date = "2026-01-01"
 
 [savings_assets]

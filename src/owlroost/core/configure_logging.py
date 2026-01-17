@@ -10,6 +10,7 @@ try:
 except ImportError:  # pragma: no cover
     DictConfig = None
 
+CURRENT_LOG_LEVEL: str | None = None  # noqa: F841
 
 LOG_LEVELS = {
     "TRACE",
@@ -28,9 +29,12 @@ def configure_logging(
     """
     Configure Loguru logging.
 
-    Accepts:
-      - string log level (e.g. "INFO", "DEBUG")
-      - Hydra DictConfig with cfg.logging.level
+    Behavior:
+      - If configured level >= INFO:
+          * INFO / SUCCESS → short format
+          * WARNING+ → full format
+      - If configured level < INFO (DEBUG / TRACE):
+          * All messages → full format
     """
 
     # ------------------------------------------------------------
@@ -53,18 +57,41 @@ def configure_logging(
     logger.remove()
 
     # ------------------------------------------------------------
-    # Add stderr handler
+    # Format function
     # ------------------------------------------------------------
-    logger.add(
-        sys.stderr,
-        level=log_level,
-        format=(
+    def dynamic_format(record):
+        record_level = record["level"].name
+
+        short = "<level>{level:8}</level> | <level>{message}</level>\n"
+        full = (
+            "<green>{time:YYYY-MM-DD HH:mm:ss}</green> | "
             "<level>{level:8}</level> | "
             "<cyan>{name}</cyan>:"
             "<cyan>{function}</cyan>:"
             "<cyan>{line}</cyan> - "
-            "<level>{message}</level>"
-        ),
+            "<level>{message}</level>\n"
+        )
+
+        # DEBUG / TRACE mode → always full
+        if log_level in {"DEBUG", "TRACE"}:
+            return full
+
+        # INFO or higher → short for INFO/SUCCESS, full otherwise
+        if record_level in {"INFO", "SUCCESS"}:
+            return short
+
+        return full
+
+    # ------------------------------------------------------------
+    # Add stderr handler
+    # ------------------------------------------------------------
+
+    CURRENT_LOG_LEVEL = log_level  # noqa: F841
+
+    logger.add(
+        sys.stderr,
+        level=log_level,
+        format=dynamic_format,
         backtrace=(log_level == "TRACE"),
         diagnose=(log_level == "TRACE"),
         enqueue=False,  # IMPORTANT for Hydra multiruns / multiprocessing

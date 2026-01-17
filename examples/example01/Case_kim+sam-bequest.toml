@@ -29,15 +29,19 @@ social_security_ages = [ 70.0, 68.0,]
 heirs_rate_on_tax_deferred_estate = 33.0
 dividend_rate = 1.75
 obbba_expiration_year = 2032
-from = 1928
-to = 2024
+#method = "user"
+#values = [ 6.0, 4.0, 3.3000000000000003, 2.8000000000000003,]
+#from = 1928
+#to = 2024
+
 method = "stochastic"
-#rate_seed = 959183449  # seed for trial 0
-rate_seed = 3609844797  # seed for trial 3
+rate_seed = 959183449  # seed for trial 0
+#rate_seed = 3609844797  # seed for trial 3
 reproducible_rates = true
 values = [ 12.53848, 10.00455, 8.39939, 5.0303,]
 standard_deviations = [ 16.61002, 8.40866, 10.07218, 3.21505,]
 correlations = [ [ 1.0, 0.46741, 0.3249, -0.28302,], [ 0.46741, 1.0, 0.84423, -0.55967,], [ 0.3249, 0.84423, 1.0, -0.38111,], [ -0.28302, -0.55967, -0.38111, 1.0,],]
+
 
 [asset_allocation]
 interpolation_method = "s-curve"
@@ -55,8 +59,8 @@ smile_delay = 0
 objective = "maxBequest"
 
 [solver_options]
-netSpending = 180
-maxRothConversion = 250
+netSpending = 145
+maxRothConversion = 100
 noRothConversions = "None"
 startRothConversions = 2026
 withMedicare = "optimize"
