@@ -1,5 +1,5 @@
 case_name = "kim+sam-bequest"
-description = "This is the case of Kim and Sam used as an example case for optimizing bequest and Roth conversions. A HFP file is associated with this case."
+description = "This is the case of Kim and Sam used as an example case for optimizing bequest and Roth conversions. A Household Financial Profile called 'HFP_kim+sam.xslx' is associated with this case."
 
 [basic_info]
 status = "married"
@@ -54,10 +54,9 @@ netSpending = 145
 maxRothConversion = 100
 noRothConversions = "None"
 startRothConversions = 2026
-withMedicare = "optimize"
+withMedicare = "loop"
 solver = "HiGHS"
 spendingSlack = 0
-xorConstraints = true
 withSCLoop = true
 
 [results]

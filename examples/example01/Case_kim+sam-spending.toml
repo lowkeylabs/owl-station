@@ -1,5 +1,5 @@
 case_name = "kim+sam-spending"
-description = "This is the case of Kim and Sam used as an example case for optimizing spending and Roth conversions. An HFP file is associated with this case."
+description = "This is the case of Kim and Sam used as an example case for optimizing spending and Roth conversions. A Household Financial Profile called 'HFP-kim+sam.xslx' is associated with this case."
 
 [basic_info]
 status = "married"
@@ -53,11 +53,10 @@ objective = "maxSpending"
 maxRothConversion = 100
 noRothConversions = "None"
 startRothConversions = 2026
-withMedicare = "optimize"
+withMedicare = "loop"
 bequest = 0
 solver = "HiGHS"
 spendingSlack = 0
-xorConstraints = true
 withSCLoop = true
 
 [results]

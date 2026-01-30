@@ -1,11 +1,11 @@
 case_name = "joe"
-description = "This is an example of a case involving a single individual. Joe is single and will retire in a few years. His wages and contributions are contained in the 'joe.xlsx' spreadsheet."
+description = "This is an example of a case involving a single individual. Joe is single and will retire in a few years. His wages and contributions are contained in the 'HFP_joe.xlsx' Household Financial Profile."
 
 [basic_info]
 status = "single"
 names = [ "Joe",]
 date_of_birth = [ "1967-01-15",]
-life_expectancy = [ 106,]
+life_expectancy = [ 89,]
 start_date = "2026-01-01"
 
 [savings_assets]
